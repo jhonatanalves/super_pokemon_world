@@ -1,5 +1,6 @@
 import Phaser from 'phaser';
 import { GAME_CONFIG } from './config/game';
+import { PHYSICS } from './config/physics';
 import { integerZoom } from './logic/scale';
 import { BootScene } from './scenes/BootScene';
 import { TitleScene } from './scenes/TitleScene';
@@ -41,5 +42,15 @@ new Phaser.Game({
     mode: Phaser.Scale.FIT,
     autoCenter: Phaser.Scale.CENTER_BOTH,
   },
+  physics: {
+    default: 'arcade',
+    arcade: {
+      // A gravidade do herói vem da lógica pura; o Arcade só resolve colisão em passo fixo.
+      gravity: { x: 0, y: 0 },
+      fps: PHYSICS.stepsPerSecond,
+      fixedStep: true,
+    },
+  },
+  input: { gamepad: true },
   scene: [BootScene, TitleScene, WorldMapScene, LevelScene, HudScene, PauseScene],
 });

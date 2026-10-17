@@ -6,4 +6,6 @@ export const GAME_CONFIG = {
   backgroundColor: '#1a1c2c',
   /** Zoom mínimo aceito; o zoom real é sempre inteiro (ver src/logic/scale.ts). */
   minZoom: 1,
+  /** Lado de um tile, em px. */
+  tileSize: 16,
 } as const;
