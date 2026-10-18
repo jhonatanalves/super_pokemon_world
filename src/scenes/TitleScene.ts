@@ -18,7 +18,7 @@ export class TitleScene extends Phaser.Scene {
       })
       .setOrigin(0.5);
     this.add
-      .text(GAME_CONFIG.width / 2, GAME_CONFIG.height * 0.75, 'Z ou Enter: sala de teste', {
+      .text(GAME_CONFIG.width / 2, GAME_CONFIG.height * 0.75, 'Z ou Enter: fase de teste', {
         fontFamily: 'monospace',
         fontSize: '8px',
         color: '#94b0c2',

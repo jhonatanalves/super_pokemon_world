@@ -1,6 +1,14 @@
-import { FIXED_DT, PHYSICS, type PhysicsConfig } from '../config/physics';
+import {
+  FIXED_DT,
+  PHYSICS,
+  SLOPE_SPEED,
+  type PhysicsConfig,
+  type SlopeSpeedTable,
+} from '../config/physics';
 import { transition } from '../systems/StateMachine';
 import { HERO_TRANSITIONS, type HeroState } from './heroStates';
+import { approach } from './math';
+import { NO_TILE_CONTACTS, type TileContacts } from './tileCollision';
 
 /** Botões lidos no passo. `jump` e `run` são "segurado", não "apertado agora". */
 export interface HeroInput {
@@ -11,13 +19,8 @@ export interface HeroInput {
   readonly run: boolean;
 }
 
-/** Lados em que o cenário bloqueou o corpo no último passo da física. */
-export interface HeroContacts {
-  readonly ground: boolean;
-  readonly ceiling: boolean;
-  readonly wallLeft: boolean;
-  readonly wallRight: boolean;
-}
+/** Lados em que o cenário bloqueou o corpo no último passo da física, e a inclinação do piso. */
+export type HeroContacts = TileContacts;
 
 export interface HeroMotion {
   /** px/s; positivo para a direita. */
@@ -48,12 +51,7 @@ export const NO_INPUT: HeroInput = {
   run: false,
 };
 
-export const NO_CONTACTS: HeroContacts = {
-  ground: false,
-  ceiling: false,
-  wallLeft: false,
-  wallRight: false,
-};
+export const NO_CONTACTS: HeroContacts = NO_TILE_CONTACTS;
 
 /**
  * Estado inicial. `jumpHeld` começa verdadeiro para que a tecla que abriu a fase,
@@ -87,9 +85,26 @@ export function isPMeterFull(
   return motion.pMeter >= stepsFor(p.pMeterChargeTime, dt);
 }
 
-/** Leva `value` em direção a `target`, andando no máximo `delta`. */
-function approach(value: number, target: number, delta: number): number {
-  return value < target ? Math.min(value + delta, target) : Math.max(value - delta, target);
+/**
+ * Multiplicador da velocidade máxima no piso com inclinação `grade` (ver TileContacts.groundSlope),
+ * andando na direção `dir`. Usa a linha da tabela com a inclinação mais próxima.
+ */
+export function slopeSpeedFactor(
+  grade: number,
+  dir: number,
+  table: SlopeSpeedTable = SLOPE_SPEED,
+): number {
+  if (grade === 0 || dir === 0 || table.length === 0) return 1;
+  const steepness = Math.abs(grade);
+  const row = table.reduce((best, r) =>
+    Math.abs(r.grade - steepness) < Math.abs(best.grade - steepness) ? r : best,
+  );
+  return Math.sign(grade) === Math.sign(dir) ? row.uphill : row.downhill;
+}
+
+/** Mata o herói: ele para onde está e não aceita mais comandos. */
+export function killHero(motion: HeroMotion): HeroMotion {
+  return { ...motion, vx: 0, vy: 0, state: transition(HERO_TRANSITIONS, motion.state, 'dead') };
 }
 
 /**
@@ -102,7 +117,9 @@ export function stepHero(
   contacts: HeroContacts,
   dt: number = FIXED_DT,
   p: PhysicsConfig = PHYSICS,
+  slopes: SlopeSpeedTable = SLOPE_SPEED,
 ): HeroMotion {
+  if (prev.state === 'dead') return prev;
   const ground = contacts.ground;
   let vx = prev.vx;
   let vy = prev.vy;
@@ -117,6 +134,8 @@ export function stepHero(
   const reversing = dir !== 0 && vx !== 0 && Math.sign(vx) !== dir;
   const speedBefore = Math.abs(vx);
   const pFull = isPMeterFull(prev, dt, p);
+  // Na ladeira a velocidade máxima cai na subida e sobe na descida.
+  const slope = ground ? slopeSpeedFactor(contacts.groundSlope, dir, slopes) : 1;
 
   // Horizontal. No ar, aceleração e desaceleração valem uma fração das do chão.
   const control = ground ? 1 : p.airControl;
@@ -125,7 +144,7 @@ export function stepHero(
   } else if (reversing) {
     vx = approach(vx, 0, p.skidDecel * control * dt);
   } else {
-    const max = !input.run ? p.walkSpeed : pFull ? p.pMeterSpeed : p.runSpeed;
+    const max = (!input.run ? p.walkSpeed : pFull ? p.pMeterSpeed : p.runSpeed) * slope;
     if (Math.abs(vx) <= max) {
       vx = approach(vx, dir * max, p.groundAccel * control * dt);
     } else if (ground) {
@@ -137,7 +156,7 @@ export function stepHero(
   // P-meter: enche correndo no chão na velocidade máxima, esvazia no chão, congela no ar.
   let pMeter = prev.pMeter;
   if (ground) {
-    const atRunSpeed = input.run && Math.sign(vx) === dir && Math.abs(vx) >= p.runSpeed;
+    const atRunSpeed = input.run && Math.sign(vx) === dir && Math.abs(vx) >= p.runSpeed * slope;
     pMeter = atRunSpeed
       ? Math.min(pMeter + 1, stepsFor(p.pMeterChargeTime, dt))
       : Math.max(pMeter - 1, 0);
@@ -182,7 +201,7 @@ export function stepHero(
   else if (crouching) desired = 'crouch';
   else if (reversing && vx !== 0 && (speedBefore >= p.skidMinSpeed || prev.state === 'skid'))
     desired = 'skid';
-  else if (Math.abs(vx) > p.walkSpeed) desired = 'run';
+  else if (Math.abs(vx) > p.walkSpeed * slope) desired = 'run';
   else if (vx !== 0 || dir !== 0) desired = 'walk';
   else desired = 'idle';
 

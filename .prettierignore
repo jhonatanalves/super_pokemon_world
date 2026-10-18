@@ -2,3 +2,5 @@ dist
 node_modules
 docs
 package-lock.json
+# Mapas exportados pelo Tiled: o formato é dele.
+public/assets/levels

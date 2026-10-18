@@ -1,10 +1,11 @@
 import { describe, expect, it } from 'vitest';
 import { GAME_CONFIG } from '../src/config/game';
-import { FIXED_DT, PHYSICS } from '../src/config/physics';
+import { FIXED_DT, PHYSICS, SLOPE_SPEED } from '../src/config/physics';
 import {
   createHeroMotion,
   isPMeterFull,
   NO_INPUT,
+  slopeSpeedFactor,
   stepHero,
   stepsFor,
   type HeroInput,
@@ -264,5 +265,40 @@ describe('queda', () => {
     const m = stepHero(createHeroMotion(), NO_INPUT, AIR);
     expect(m.vy).toBeCloseTo(PHYSICS.gravityDown * FIXED_DT);
     expect(m.state).toBe('fall');
+  });
+});
+
+describe('velocidade na ladeira (F2)', () => {
+  const steep = SLOPE_SPEED.find((s) => s.grade === 1)!;
+  const gentle = SLOPE_SPEED.find((s) => s.grade === 0.5)!;
+
+  it('subida reduz e descida aumenta a velocidade máxima, conforme a inclinação', () => {
+    // groundSlope > 0: o piso sobe para a direita.
+    expect(slopeSpeedFactor(1, 1)).toBe(steep.uphill);
+    expect(slopeSpeedFactor(1, -1)).toBe(steep.downhill);
+    expect(slopeSpeedFactor(-1, -1)).toBe(steep.uphill);
+    expect(slopeSpeedFactor(0.5, 1)).toBe(gentle.uphill);
+    expect(slopeSpeedFactor(-0.5, 1)).toBe(gentle.downhill);
+    expect(steep.uphill).toBeLessThan(gentle.uphill);
+    expect(steep.downhill).toBeGreaterThan(gentle.downhill);
+  });
+
+  it('no plano ou sem direção, nada muda', () => {
+    expect(slopeSpeedFactor(0, 1)).toBe(1);
+    expect(slopeSpeedFactor(1, 0)).toBe(1);
+  });
+
+  it('andando ladeira acima, a velocidade cai até a máxima da subida', () => {
+    const uphill = { ...GROUND, groundSlope: 1 };
+    let m = standing().hold(RIGHT, stepsFor(1)).at(-1) ?? createHeroMotion();
+    expect(m.vx).toBe(PHYSICS.walkSpeed);
+    for (let i = 0; i < stepsFor(1); i++) m = stepHero(m, RIGHT, uphill);
+    expect(m.vx).toBeCloseTo(PHYSICS.walkSpeed * steep.uphill);
+    expect(m.state).toBe('walk');
+  });
+
+  it('a ladeira não vale no ar', () => {
+    const inAir = stepHero(createHeroMotion(), RIGHT, { ...AIR, groundSlope: 1 });
+    expect(inAir.vx).toBeCloseTo(PHYSICS.groundAccel * PHYSICS.airControl * FIXED_DT);
   });
 });

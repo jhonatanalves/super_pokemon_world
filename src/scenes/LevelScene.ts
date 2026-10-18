@@ -1,93 +1,97 @@
 import Phaser from 'phaser';
+import { ASSETS } from '../config/assets';
 import { GAME_CONFIG } from '../config/game';
-import { ROOM_COLORS } from '../config/placeholder';
-import testRoom from '../content/testRoom.json';
+import { RULER_COLORS } from '../config/placeholder';
 import { Player } from '../entities/Player';
-import { parseRoom, surfaceRow, type Room } from '../logic/room';
+import { advanceClock } from '../logic/fixedStep';
+import { LEVEL_LAYERS, parseLevel, type Level, type Ruler } from '../logic/level';
+import { LevelCamera } from '../systems/Camera';
 import { DebugPanel } from '../systems/DebugPanel';
 import { InputSystem } from '../systems/InputSystem';
+import { Parallax } from '../systems/Parallax';
 
-const TILE_TEXTURE = 'placeholder-tile';
-const SOLID_TILE = 0;
-const EMPTY_TILE = -1;
+const MS_PER_SECOND = 1000;
 
-/** Fase jogável. Na F1, a sala de teste de movimento. */
+/** Dados passados ao reiniciar a fase. */
+interface LevelData {
+  /** Mantém o painel de debug como estava antes da morte. */
+  readonly debug?: boolean;
+}
+
+/** Fase jogável. Na F2, a fase de teste carregada do Tiled. */
 export class LevelScene extends Phaser.Scene {
+  private level!: Level;
   private player!: Player;
+  private camera!: LevelCamera;
+  private parallax!: Parallax;
   private controls!: InputSystem;
   private debug!: DebugPanel;
+  /** Tempo acumulado que ainda não virou passo fixo, em segundos. */
+  private pending = 0;
 
   constructor() {
     super('LevelScene');
   }
 
-  create(): void {
-    const room = parseRoom(testRoom.rows);
-    const tile = GAME_CONFIG.tileSize;
-    const width = room.cols * tile;
-    const height = room.rows * tile;
+  create(data: LevelData = {}): void {
+    const cached = this.cache.tilemap.get(ASSETS.testLevel.key) as { data?: unknown } | undefined;
+    this.level = parseLevel(cached?.data, GAME_CONFIG.tileSize);
+    this.pending = 0;
 
-    const layer = this.createTiles(room);
-    this.drawRuler(room, testRoom.ruler.col, testRoom.ruler.tiles);
+    this.parallax = new Parallax(this);
+    this.createTiles();
+    if (this.level.ruler) this.drawRuler(this.level.ruler);
 
-    this.physics.world.setBounds(0, 0, width, height);
-    this.player = new Player(this, (room.spawn.col + 0.5) * tile, (room.spawn.row + 0.5) * tile);
-    this.physics.add.collider(this.player.sprite, layer);
-
-    // Só acompanha o herói dentro da sala. Zona morta e antecipação ficam para a F2.
-    this.cameras.main.setBounds(0, 0, width, height);
-    this.cameras.main.startFollow(this.player.sprite, true);
-
+    this.player = new Player(this, this.level.spawn);
+    this.camera = new LevelCamera(this, this.level, this.player.center);
     this.controls = new InputSystem(this);
-    this.debug = new DebugPanel(this, layer);
-
-    // A lógica do herói roda a cada passo fixo da física, não a cada quadro desenhado.
-    const world = this.physics.world;
-    const onStep = (dt: number): void => this.player.step(this.controls.readHero(), dt);
-    world.on(Phaser.Physics.Arcade.Events.WORLD_STEP, onStep);
-    this.events.once(Phaser.Scenes.Events.SHUTDOWN, () => {
-      world.off(Phaser.Physics.Arcade.Events.WORLD_STEP, onStep);
-    });
+    this.debug = new DebugPanel(this, this.level, data.debug === true);
   }
 
-  update(): void {
+  update(_time: number, delta: number): void {
     if (this.controls.justPressed('debug')) this.debug.toggle();
+
+    // Herói e câmera andam no passo fixo; o desenho, uma vez por quadro.
+    const clock = advanceClock(this.pending, delta / MS_PER_SECOND);
+    this.pending = clock.pending;
+    const input = this.controls.readHero();
+    for (let i = 0; i < clock.steps; i++) {
+      this.player.step(input, this.level);
+      this.camera.step(this.player.center);
+    }
+    if (this.player.shouldRestart()) {
+      const restart: LevelData = { debug: this.debug.isShown };
+      this.scene.restart(restart);
+      return;
+    }
+
     this.player.render();
-    this.debug.update(this.player);
+    this.parallax.update(this.camera.state.scrollX);
+    this.debug.update(this.player, this.camera.state);
   }
 
-  private createTiles(room: Room): Phaser.Tilemaps.TilemapLayer {
-    const tile = GAME_CONFIG.tileSize;
-    if (!this.textures.exists(TILE_TEXTURE)) {
-      const g = this.make.graphics({}, false);
-      g.fillStyle(ROOM_COLORS.tileEdge).fillRect(0, 0, tile, tile);
-      g.fillStyle(ROOM_COLORS.tileFill).fillRect(1, 1, tile - 2, tile - 2);
-      g.generateTexture(TILE_TEXTURE, tile, tile);
-      g.destroy();
-    }
-    const data = room.solid.map((row) => row.map((solid) => (solid ? SOLID_TILE : EMPTY_TILE)));
-    const map = this.make.tilemap({ data, tileWidth: tile, tileHeight: tile });
-    const tileset = map.addTilesetImage(TILE_TEXTURE, TILE_TEXTURE, tile, tile, 0, 0);
-    const layer = tileset && map.createLayer(0, tileset, 0, 0);
-    if (!layer) throw new Error('Não foi possível criar a camada de tiles da sala');
-    layer.setCollision(SOLID_TILE);
-    return layer;
+  /** Camadas de fundo e de terreno do Tiled. A colisão vem do Level, não do Phaser. */
+  private createTiles(): void {
+    const map = this.make.tilemap({ key: ASSETS.testLevel.key });
+    const tileset = map.addTilesetImage(this.level.tilesetName, ASSETS.testTiles.key);
+    const background = tileset && map.createLayer(LEVEL_LAYERS.background, tileset);
+    const terrain = tileset && map.createLayer(LEVEL_LAYERS.terrain, tileset);
+    if (!background || !terrain) throw new Error('Não foi possível criar as camadas da fase');
   }
 
   /** Régua com marcas a cada tile acima do piso, para conferir a altura do pulo. */
-  private drawRuler(room: Room, col: number, tiles: number): void {
+  private drawRuler(ruler: Ruler): void {
     const tile = GAME_CONFIG.tileSize;
-    const floorY = surfaceRow(room, col) * tile;
-    const x = col * tile;
-    const g = this.add.graphics().lineStyle(1, ROOM_COLORS.ruler);
-    for (let h = 1; h <= tiles; h++) {
+    const { x, y: floorY } = ruler.base;
+    const g = this.add.graphics().lineStyle(1, RULER_COLORS.line);
+    for (let h = 1; h <= ruler.tiles; h++) {
       const y = floorY - h * tile;
       g.lineBetween(x, y + 0.5, x + tile / 2, y + 0.5);
       this.add
         .text(x + tile / 2 + 1, y, String(h), {
           fontFamily: 'monospace',
           fontSize: '8px',
-          color: ROOM_COLORS.rulerText,
+          color: RULER_COLORS.text,
         })
         .setOrigin(0, 0.5);
     }

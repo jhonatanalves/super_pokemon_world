@@ -8,4 +8,7 @@ export const GAME_CONFIG = {
   minZoom: 1,
   /** Lado de um tile, em px. */
   tileSize: 16,
+  /** Caixa de colisão do herói pequeno, em px. */
+  heroWidth: 16,
+  heroHeight: 16,
 } as const;

@@ -1,12 +1,18 @@
 import Phaser from 'phaser';
+import { CAMERA } from '../config/camera';
+import { GAME_CONFIG } from '../config/game';
 import { PHYSICS } from '../config/physics';
 import { DEBUG_COLORS } from '../config/placeholder';
 import type { Player } from '../entities/Player';
+import type { CameraState } from '../logic/camera';
+import { HERO_SIZE } from '../logic/heroBody';
 import { isPMeterFull, stepsFor } from '../logic/heroMotion';
+import { tileAt, type Level } from '../logic/level';
+import { isExposedFace } from '../logic/tileCollision';
 
 const DEPTH = 1000;
 
-/** Painel de debug (F1): estado, velocidade, P-meter, FPS e caixas de colisão. */
+/** Painel de debug (F1): estado, velocidade, P-meter, câmera, FPS e caixas de colisão. */
 export class DebugPanel {
   private readonly text: Phaser.GameObjects.Text;
   private readonly heroBox: Phaser.GameObjects.Graphics;
@@ -15,7 +21,8 @@ export class DebugPanel {
 
   constructor(
     private readonly scene: Phaser.Scene,
-    layer: Phaser.Tilemaps.TilemapLayer,
+    level: Level,
+    shown = false,
   ) {
     this.text = scene.add
       .text(2, 2, '', {
@@ -29,39 +36,50 @@ export class DebugPanel {
       .setDepth(DEPTH);
     this.heroBox = scene.add.graphics().setDepth(DEPTH);
     this.tileFaces = scene.add.graphics().setDepth(DEPTH);
-    layer.renderDebug(this.tileFaces, {
-      tileColor: null,
-      collidingTileColor: null,
-      faceColor: Phaser.Display.Color.IntegerToColor(DEBUG_COLORS.tileFaces),
-    });
-    this.setShown(false);
+    drawCollision(this.tileFaces, level);
+    this.setShown(shown);
+  }
+
+  get isShown(): boolean {
+    return this.shown;
   }
 
   toggle(): void {
     this.setShown(!this.shown);
   }
 
-  update(player: Player): void {
+  update(player: Player, camera: CameraState): void {
     if (!this.shown) return;
     const m = player.motion;
+    const c = player.body.contacts;
     const pPercent = Math.round((m.pMeter / stepsFor(PHYSICS.pMeterChargeTime)) * 100);
     this.text.setText([
       `estado ${m.state}`,
       `vx ${m.vx.toFixed(1)}  vy ${m.vy.toFixed(1)}`,
       `P ${pPercent}%${isPMeterFull(m) ? ' cheio' : ''}  chão ${m.airSteps === 0 ? 'sim' : 'não'}`,
+      `ladeira ${c.ground ? c.groundSlope : '-'}`,
+      `câmera x ${camera.scrollX}  antecip ${camera.offset}`,
       `fps ${Math.round(this.scene.game.loop.actualFps)}`,
     ]);
 
+    // Graphics ignora roundPixels; arredonda para coincidir com o herói desenhado.
     const b = player.body;
     this.heroBox.clear();
     this.heroBox.lineStyle(1, DEBUG_COLORS.heroBox);
-    // Graphics ignora roundPixels; arredonda para coincidir com o herói desenhado.
     this.heroBox.strokeRect(
       Math.round(b.x) + 0.5,
       Math.round(b.y) + 0.5,
-      b.width - 1,
-      b.height - 1,
+      HERO_SIZE.width - 1,
+      HERO_SIZE.height - 1,
     );
+    // Zona morta da câmera: o herói anda entre as duas linhas sem a câmera acompanhar.
+    const half = CAMERA.deadZoneWidth / 2;
+    const top = camera.scrollY;
+    this.heroBox.lineStyle(1, DEBUG_COLORS.deadZone);
+    for (const x of [camera.anchor - half, camera.anchor + half]) {
+      const px = Math.round(x) + 0.5;
+      this.heroBox.lineBetween(px, top, px, top + GAME_CONFIG.height);
+    }
   }
 
   private setShown(shown: boolean): void {
@@ -69,5 +87,30 @@ export class DebugPanel {
     this.text.setVisible(shown);
     this.heroBox.setVisible(shown).clear();
     this.tileFaces.setVisible(shown);
+  }
+}
+
+/** Desenha o que colide: faces expostas dos blocos, topo das plataformas e piso das ladeiras. */
+function drawCollision(g: Phaser.GameObjects.Graphics, level: Level): void {
+  const s = level.tileSize;
+  g.lineStyle(1, DEBUG_COLORS.tileFaces);
+  for (let row = 0; row < level.rows; row++) {
+    for (let col = 0; col < level.cols; col++) {
+      const tile = tileAt(level, col, row);
+      const x = col * s;
+      const y = row * s;
+      if (tile.kind === 'oneWay') {
+        g.lineBetween(x, y + 0.5, x + s, y + 0.5);
+      } else if (tile.kind === 'slope') {
+        g.lineBetween(x, y + s - tile.left, x + s, y + s - tile.right);
+      } else if (tile.kind === 'solid') {
+        if (isExposedFace(level, col, row, 'top')) g.lineBetween(x, y + 0.5, x + s, y + 0.5);
+        if (isExposedFace(level, col, row, 'bottom'))
+          g.lineBetween(x, y + s - 0.5, x + s, y + s - 0.5);
+        if (isExposedFace(level, col, row, 'left')) g.lineBetween(x + 0.5, y, x + 0.5, y + s);
+        if (isExposedFace(level, col, row, 'right'))
+          g.lineBetween(x + s - 0.5, y, x + s - 0.5, y + s);
+      }
+    }
   }
 }

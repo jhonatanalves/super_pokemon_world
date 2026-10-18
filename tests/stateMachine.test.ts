@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { NO_INPUT, stepsFor, type HeroInput } from '../src/logic/heroMotion';
+import { killHero, NO_INPUT, stepsFor, type HeroInput } from '../src/logic/heroMotion';
 import { HERO_STATES, HERO_TRANSITIONS, type HeroState } from '../src/logic/heroStates';
 import { canTransition, transition, type TransitionTable } from '../src/systems/StateMachine';
 import { standing } from './helpers/flatFloor';
@@ -65,6 +65,20 @@ describe('estados do herói (F1-A10)', () => {
         previous = m.state;
       }
     }
+    // A morte (cair no buraco) é testada na fase em tileCollision.test.ts; aqui só a transição.
+    const dead = killHero(floor.motion).state;
+    expect(canTransition(HERO_TRANSITIONS, previous, dead)).toBe(true);
+    visited.add(dead);
     expect([...visited].sort()).toEqual([...HERO_STATES].sort());
+  });
+
+  it('morto não sai do estado nem se move', () => {
+    const floor = standing();
+    floor.hold({ ...NO_INPUT, right: true }, stepsFor(0.5));
+    floor.motion = killHero(floor.motion);
+    expect(floor.motion).toMatchObject({ state: 'dead', vx: 0, vy: 0 });
+    for (const to of HERO_STATES) expect(transition(HERO_TRANSITIONS, 'dead', to)).toBe('dead');
+    const after = floor.step({ ...NO_INPUT, right: true, jump: true });
+    expect(after).toMatchObject({ state: 'dead', vx: 0, vy: 0 });
   });
 });

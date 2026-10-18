@@ -38,6 +38,18 @@ export const PHYSICS = {
   coyoteTime: 0.1,
   jumpBufferTime: 0.12,
 
+  /**
+   * Quanto o piso pode subir num passo sem virar parede (px). Cobre a ladeira de 45° na
+   * velocidade máxima e a borda do herói (meia largura) passando por cima da emenda. F2.
+   */
+  slopeStepUp: 8,
+  /** Quanto o herói no chão desce para continuar grudado no piso, como na descida de ladeira (px). F2. */
+  groundSnap: 8,
+  /** Tempo entre a morte (cair no buraco) e o reinício da fase. F2. */
+  deathRestartDelay: 1,
+  /** Passos fixos no máximo por quadro; o resto do atraso é descartado (aba em segundo plano). F2. */
+  maxStepsPerFrame: 5,
+
   /** Usados a partir da F3. */
   stompBounce: 250,
   stompBounceHeld: 380,
@@ -45,6 +57,23 @@ export const PHYSICS = {
 } as const;
 
 export type PhysicsConfig = { readonly [K in keyof typeof PHYSICS]: number };
+
+/**
+ * Velocidade máxima na ladeira, como multiplicador da do plano (F2, aprovado: subida lenta,
+ * descida rápida). `grade` é a inclinação do tile: 1 = 45°, 0,5 = "22,5°" (1 tile de altura a cada 2).
+ * Reforçados após o teste manual: com ×0,875 / ×1,125 a rampa de 22,5° não era percebida.
+ * Na descida de 45° com P-meter (243 px/s ≈ 4 px por passo) o herói segue grudado: groundSnap = 8.
+ */
+export const SLOPE_SPEED = [
+  { grade: 0.5, uphill: 0.8, downhill: 1.2 },
+  { grade: 1, uphill: 0.65, downhill: 1.35 },
+] as const;
+
+export type SlopeSpeedTable = readonly {
+  readonly grade: number;
+  readonly uphill: number;
+  readonly downhill: number;
+}[];
 
 /** Duração de um passo fixo, em segundos. */
 export const FIXED_DT = 1 / PHYSICS.stepsPerSecond;

@@ -45,7 +45,8 @@ new Phaser.Game({
   physics: {
     default: 'arcade',
     arcade: {
-      // A gravidade do herói vem da lógica pura; o Arcade só resolve colisão em passo fixo.
+      // Desde a F2 o herói não usa o Arcade: movimento, colisão com tiles e passo fixo vêm
+      // de src/logic/. O Arcade fica configurado para sobreposições de objetos (F3).
       gravity: { x: 0, y: 0 },
       fps: PHYSICS.stepsPerSecond,
       fixedStep: true,
