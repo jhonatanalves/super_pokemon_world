@@ -72,21 +72,52 @@ function changeForm(state: PowerState, to: Form): PowerState {
   return form === state.form ? state : { ...state, form };
 }
 
+/** Caixa de reserva do HUD (F4b): guarda 1 item, ou está vazia. */
+export type Reserve = Power | null;
+
 /**
  * Pega um item. A invencibilidade recomeça a contar do zero; `grow` só muda o pequeno;
- * um especial vale para qualquer forma. `changed` diz se algo mudou.
+ * um especial vale para qualquer forma. `changed` diz se a forma ou a invencibilidade mudou.
+ *
+ * Reserva (F4b): o item que não muda a forma vai para a reserva, e o especial trocado por
+ * outro também; com a reserva cheia, o que iria para ela é perdido (não substitui o
+ * guardado). A invencibilidade nunca vai para a reserva.
  */
 export function collectPower(
   state: PowerState,
   power: Power,
+  reserve: Reserve = null,
   dt: number = FIXED_DT,
   c: PowerUpsConfig = POWERUPS,
-): { state: PowerState; changed: boolean } {
-  let next: PowerState;
-  if (power === 'star') next = { ...state, starSteps: stepsFor(c.starTime, dt) };
-  else if (power === 'grow') next = state.form === 'small' ? changeForm(state, 'big') : state;
-  else next = changeForm(state, power);
-  return { state: next, changed: next !== state };
+): { state: PowerState; reserve: Reserve; changed: boolean } {
+  if (power === 'star') {
+    return { state: { ...state, starSteps: stepsFor(c.starTime, dt) }, reserve, changed: true };
+  }
+  const next =
+    power === 'grow'
+      ? state.form === 'small'
+        ? changeForm(state, 'big')
+        : state
+      : changeForm(state, power);
+  const changed = next !== state;
+  // O que sobra: o próprio item, se não mudou nada, ou o especial que foi trocado.
+  const leftover: Reserve = !changed ? power : isSpecial(state.form) ? state.form : null;
+  return { state: next, reserve: reserve ?? leftover, changed };
+}
+
+/**
+ * Ativa a reserva (tecla própria): aplica o item guardado. Se ele não mudaria nada, continua
+ * guardado; se a forma trocada era especial, ela vai para a reserva, que acabou de esvaziar.
+ */
+export function useReserve(
+  state: PowerState,
+  reserve: Reserve,
+  dt: number = FIXED_DT,
+  c: PowerUpsConfig = POWERUPS,
+): { state: PowerState; reserve: Reserve } {
+  if (reserve === null) return { state, reserve };
+  const used = collectPower(state, reserve, null, dt, c);
+  return used.changed ? { state: used.state, reserve: used.reserve } : { state, reserve };
 }
 
 /**

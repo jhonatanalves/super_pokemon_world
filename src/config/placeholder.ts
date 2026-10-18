@@ -90,6 +90,21 @@ export const HUD_STYLE = {
   text: '#f4f4f4',
   textBackground: '#1a1c2c99',
   gameOver: '#b13e53',
+  /** Caixa de reserva (F4b). */
+  boxBackground: 0x1a1c2c,
+  boxAlpha: 0.6,
+  boxBorder: 0xf4f4f4,
+} as const;
+
+/** Posições do HUD (F4b), em px na tela. */
+export const HUD_LAYOUT = {
+  /** Distância das bordas da tela. */
+  margin: 2,
+  /** Altura de uma linha de texto (fonte de 8 px com o fundo). */
+  line: 11,
+  /** Caixa de reserva, no centro do alto da tela, e o item desenhado dentro dela. */
+  boxSize: 20,
+  boxItem: 12,
 } as const;
 
 export const DEBUG_COLORS = {

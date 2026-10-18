@@ -17,6 +17,8 @@ export const POWERUPS = {
     /** O de invencibilidade anda mais rápido e quica. */
     starSpeed: 64,
     starBounce: 300,
+    /** O item da reserva solto pelo dano cai do alto da tela devagar, atravessando o cenário. F4b. */
+    dropSpeed: 48,
   },
 
   /** Faísca do estado elétrico: anda reto, cai e quica no chão. */

@@ -20,6 +20,7 @@ export class InputSystem {
       down: addKeys('down'),
       jump: addKeys('jump'),
       run: addKeys('run'),
+      reserve: addKeys('reserve'),
       debug: addKeys('debug'),
       start: addKeys('start'),
     };
@@ -33,6 +34,7 @@ export class InputSystem {
       down: this.isDown('down'),
       jump: this.isDown('jump'),
       run: this.isDown('run'),
+      reserve: this.isDown('reserve'),
     };
   }
 
@@ -62,6 +64,8 @@ export class InputSystem {
         return this.padButtons(pad, GAMEPAD.jump);
       case 'run':
         return this.padButtons(pad, GAMEPAD.run);
+      case 'reserve':
+        return this.padButtons(pad, GAMEPAD.reserve);
       case 'start':
         return this.padButtons(pad, GAMEPAD.start);
       case 'debug':

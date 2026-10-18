@@ -1,3 +1,5 @@
+import type { Form, Reserve } from './powerups';
+
 /**
  * Eventos do jogo (F3). A fase emite; quem precisa saber (o HUD) só escuta, nunca consulta a
  * fase. Cada evento leva os totais novos, para quem escuta não precisar perguntar nada.
@@ -10,7 +12,14 @@ export type GameEvent =
       readonly coins: number;
       readonly pokeballs: number;
       readonly pokeballsTotal: number;
+      readonly form: Form;
+      readonly star: boolean;
+      readonly reserve: Reserve;
     }
+  /** A forma do herói mudou, ou a invencibilidade começou ou acabou (F4b). */
+  | { readonly type: 'power-changed'; readonly form: Form; readonly star: boolean }
+  /** O item da caixa de reserva mudou: guardado, usado ou solto pelo dano (F4b). */
+  | { readonly type: 'reserve-changed'; readonly reserve: Reserve }
   /** Moeda coletada (do cenário ou de um bloco). `lives` muda a cada 100 moedas. */
   | { readonly type: 'coin-collected'; readonly coins: number; readonly lives: number }
   | { readonly type: 'pokeball-collected'; readonly pokeballs: number }

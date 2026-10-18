@@ -10,13 +10,15 @@ import { HERO_TRANSITIONS, type HeroState } from './heroStates';
 import { approach } from './math';
 import { NO_TILE_CONTACTS, type TileContacts } from './tileCollision';
 
-/** Botões lidos no passo. `jump` e `run` são "segurado", não "apertado agora". */
+/** Botões lidos no passo. Todos são "segurado", não "apertado agora". */
 export interface HeroInput {
   readonly left: boolean;
   readonly right: boolean;
   readonly down: boolean;
   readonly jump: boolean;
   readonly run: boolean;
+  /** Ativa o item da caixa de reserva (F4b). Não mexe no movimento. */
+  readonly reserve: boolean;
 }
 
 /** Lados em que o cenário bloqueou o corpo no último passo da física, e a inclinação do piso. */
@@ -49,6 +51,7 @@ export const NO_INPUT: HeroInput = {
   down: false,
   jump: false,
   run: false,
+  reserve: false,
 };
 
 export const NO_CONTACTS: HeroContacts = NO_TILE_CONTACTS;

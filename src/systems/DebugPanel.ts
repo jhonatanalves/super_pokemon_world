@@ -12,8 +12,8 @@ import { isExposedFace, type Box } from '../logic/tileCollision';
 import type { World } from '../logic/world';
 
 const DEPTH = 1000;
-/** Abaixo da linha do HUD. */
-const TEXT_TOP = 14;
+/** Abaixo das linhas e da caixa de reserva do HUD. */
+const TEXT_TOP = 25;
 
 /**
  * Painel de debug (F1): estado, velocidade, P-meter, câmera, FPS e caixas de colisão

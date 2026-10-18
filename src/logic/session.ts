@@ -1,14 +1,19 @@
 import { RULES, type RulesConfig } from '../config/rules';
+import type { Reserve } from './powerups';
 
-/** O que passa de uma tentativa para a outra: vidas, moedas e se o checkpoint da fase foi tocado. */
+/**
+ * O que passa de uma tentativa para a outra: vidas, moedas, se o checkpoint da fase foi
+ * tocado e o item da caixa de reserva (F4b; como no SMW, a reserva não se perde ao morrer).
+ */
 export interface Session {
   readonly lives: number;
   readonly coins: number;
   readonly checkpoint: boolean;
+  readonly reserve: Reserve;
 }
 
 export function newSession(r: RulesConfig = RULES): Session {
-  return { lives: r.startLives, coins: 0, checkpoint: false };
+  return { lives: r.startLives, coins: 0, checkpoint: false, reserve: null };
 }
 
 /** Soma moedas. A cada `coinsPerLife` moedas ganha 1 vida e o contador volta a 0. */

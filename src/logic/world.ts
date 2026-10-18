@@ -19,6 +19,7 @@ import { createEnemy } from '../entities/EntityFactory';
 import {
   activateItem,
   createBlockItem,
+  createDroppedItem,
   createPlacedItem,
   isItemGone,
   stepPowerItem,
@@ -57,6 +58,7 @@ import {
   isBig,
   START_POWER,
   tickPower,
+  useReserve,
   type PowerState,
 } from './powerups';
 import { addCoins, loseLife, reachCheckpoint, type Session } from './session';
@@ -96,6 +98,8 @@ export interface World {
   readonly spinSteps: number;
   /** Botão de correr/atacar no passo anterior, para detectar o aperto (F4). */
   readonly runHeld: boolean;
+  /** Botão da reserva no passo anterior (F4b). O item guardado fica em `session.reserve`. */
+  readonly reserveHeld: boolean;
   /** Próximo id livre para um item de power-up. */
   readonly nextId: number;
   readonly checkpoint: Checkpoint | null;
@@ -159,6 +163,7 @@ export function createWorld(
     spinSteps: 0,
     // Como o pulo: o botão que abriu a fase, se ainda estiver pressionado, não vira ataque.
     runHeld: true,
+    reserveHeld: true,
     nextId: powerItems.length,
     checkpoint,
     session,
@@ -177,7 +182,16 @@ export function levelStartedEvent(world: World): GameEvent {
     coins: world.session.coins,
     pokeballs: world.pokeballs,
     pokeballsTotal: world.pokeballsTotal,
+    form: world.power.form,
+    star: hasStar(world.power),
+    reserve: world.session.reserve,
   };
+}
+
+/** Meio da tela, de onde cai o item da reserva; sem tela finita (testes), o herói. */
+function viewCenter(view: View, fallback: number): number {
+  const center = (view.left + view.right) / 2;
+  return Number.isFinite(center) ? center : fallback;
 }
 
 function inView(box: Box, view: View): boolean {
@@ -333,17 +347,39 @@ export function stepWorld(
     const damage = takeDamage(hurt, isBig(power.form), dt, p);
     hurt = damage.state;
     if (damage.outcome !== 'ignored') events.push({ type: 'player-damaged' });
-    if (damage.outcome === 'survived') power = damagePower(power).state;
+    if (damage.outcome === 'survived') {
+      power = damagePower(power).state;
+      // O item da reserva é solto: cai do alto da tela.
+      if (session.reserve) {
+        const centerX = viewCenter(view, heroX);
+        powerItems.push(createDroppedItem(nextId++, session.reserve, centerX));
+        session = { ...session, reserve: null };
+      }
+    }
     if (damage.outcome === 'died') hero = { ...hero, motion: killHero(hero.motion), deadSteps: 0 };
   }
 
-  // Itens de power-up pegos.
+  // Itens de power-up pegos; o que não muda a forma vai para a reserva.
   powerItems = powerItems.filter((item) => {
     if (!overlaps(heroBox(hero), item)) return true;
-    power = collectPower(power, item.power, dt).state;
+    const got = collectPower(power, item.power, session.reserve, dt);
+    power = got.state;
+    session = { ...session, reserve: got.reserve };
     return false;
   });
+  // Botão da reserva: aplica o item guardado.
+  if (input.reserve && !world.reserveHeld && hero.motion.state !== 'dead') {
+    const used = useReserve(power, session.reserve, dt);
+    power = used.state;
+    session = { ...session, reserve: used.reserve };
+  }
   hero = resizeHero(hero, heroHeightFor(power.form));
+  if (power.form !== world.power.form || hasStar(power) !== hasStar(world.power)) {
+    events.push({ type: 'power-changed', form: power.form, star: hasStar(power) });
+  }
+  if (session.reserve !== world.session.reserve) {
+    events.push({ type: 'reserve-changed', reserve: session.reserve });
+  }
 
   // Moedas, Moedas Pokébola e checkpoint.
   let pokeballs = world.pokeballs;
@@ -381,6 +417,7 @@ export function stepWorld(
       sparks,
       spinSteps,
       runHeld: input.run,
+      reserveHeld: input.reserve,
       nextId,
       session,
       pokeballs,

@@ -17,7 +17,7 @@ const RIGHT: HeroInput = { ...NO_INPUT, right: true };
 
 describe('vidas e Game Over', () => {
   it('o jogo começa com 5 vidas e nenhuma moeda', () => {
-    expect(newSession()).toEqual({ lives: 5, coins: 0, checkpoint: false });
+    expect(newSession()).toEqual({ lives: 5, coins: 0, checkpoint: false, reserve: null });
     expect(RULES.startLives).toBe(5);
   });
 
@@ -114,7 +114,15 @@ describe('EventBus e HUD (F3-A10)', () => {
     for (const type of HUD_EVENTS) bus.on(type, (e) => (hud = applyHudEvent(hud, e)));
 
     bus.emit(levelStartedEvent(sim.world));
-    expect(hud).toEqual({ lives: 5, coins: 0, pokeballs: 0, pokeballsTotal: 0 });
+    expect(hud).toEqual({
+      lives: 5,
+      coins: 0,
+      pokeballs: 0,
+      pokeballsTotal: 0,
+      form: 'small',
+      star: false,
+      reserve: null,
+    });
     sim.until(RIGHT, (w) => w.items.length === 0, stepsFor(3));
     for (const event of sim.events) bus.emit(event);
     expect(hud.coins).toBe(1);

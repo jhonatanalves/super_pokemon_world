@@ -10,13 +10,15 @@ import { centerX, enterState, tick } from '../enemies/EnemyBase';
 /**
  * Item de power-up (F4), sem Phaser, como os inimigos. Sai de dentro de um bloco subindo, ou
  * fica onde foi posto no Tiled. O de crescer anda como o cogumelo; o de invencibilidade anda
- * e quica; os especiais ficam parados. Quem o pega é o herói (src/logic/world.ts).
+ * e quica; os especiais ficam parados. O da caixa de reserva, solto pelo dano, cai do alto da
+ * tela (`drop`). Quem o pega é o herói (src/logic/world.ts).
  */
-export type PowerItemState = 'emerge' | 'idle';
+export type PowerItemState = 'emerge' | 'idle' | 'drop';
 
 export const POWER_ITEM_TRANSITIONS: TransitionTable<PowerItemState> = {
   emerge: ['idle'],
   idle: [],
+  drop: [],
 };
 
 export interface PowerItem extends Box {
@@ -93,6 +95,29 @@ export function createBlockItem(
   };
 }
 
+/**
+ * Item da caixa de reserva solto pelo dano: nasce acima do alto da fase, centrado em `centerX`
+ * (o meio da tela), e cai devagar atravessando o cenário até ser pego ou sair por baixo.
+ */
+export function createDroppedItem(id: number, power: Power, centerX: number): PowerItem {
+  const { width, height } = POWERUPS.item;
+  return {
+    id,
+    power,
+    x: centerX - width / 2,
+    y: -height,
+    width,
+    height,
+    state: 'drop',
+    stateSteps: 0,
+    active: true,
+    dir: 1,
+    vy: POWERUPS.item.dropSpeed,
+    ground: false,
+    targetY: -height,
+  };
+}
+
 export function activateItem(item: PowerItem, heroX: number): PowerItem {
   return { ...item, active: true, dir: awayFrom(heroX, centerX(item)) };
 }
@@ -107,6 +132,7 @@ export function stepPowerItem(item: PowerItem, ctx: PowerItemContext): PowerItem
     const next = tick({ ...item, y });
     return y <= item.targetY ? enterState(next, POWER_ITEM_TRANSITIONS, 'idle') : next;
   }
+  if (item.state === 'drop') return tick({ ...item, y: item.y + item.vy * ctx.dt });
   if (!moves(item.power)) return tick(item);
 
   const speed = item.power === 'star' ? c.starSpeed : c.walkSpeed;
