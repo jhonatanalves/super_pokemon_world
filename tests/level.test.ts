@@ -80,6 +80,44 @@ describe('leitura do mapa do Tiled', () => {
     expect(tileAt(level, 0, 5).kind).toBe('empty');
   });
 
+  it('guarda os demais objetos com tipo, retângulo e propriedades (F3)', () => {
+    const map = withLayer(miniMap(), LEVEL_LAYERS.objects, (l) => {
+      l.objects = [
+        { type: 'spawn', x: 8, y: 16 },
+        {
+          type: 'question-block',
+          x: 16,
+          y: 0,
+          width: 16,
+          height: 16,
+          properties: [{ name: 'content', type: 'string', value: 'coin' }],
+        },
+        { type: 'rattata', x: 0, y: 0, width: 16, height: 16 },
+      ];
+    });
+    const level = parseLevel(map, T);
+    expect(level.objects.map((o) => o.type)).toEqual(['question-block', 'rattata']);
+    expect(level.objects[0]).toMatchObject({ x: 16, y: 0, width: 16, height: 16 });
+    expect(level.objects[0].properties.get('content')).toBe('coin');
+  });
+
+  it('recusa objeto fora do mapa ou sem tipo', () => {
+    const outside = withLayer(miniMap(), LEVEL_LAYERS.objects, (l) => {
+      l.objects = [
+        { type: 'spawn', x: 8, y: 16 },
+        { type: 'coin', x: 24, y: 0, width: 16, height: 16 },
+      ];
+    });
+    expect(() => parseLevel(outside, T)).toThrow(/fora do mapa/);
+    const untyped = withLayer(miniMap(), LEVEL_LAYERS.objects, (l) => {
+      l.objects = [
+        { type: 'spawn', x: 8, y: 16 },
+        { x: 0, y: 0 },
+      ];
+    });
+    expect(() => parseLevel(untyped, T)).toThrow(/sem "type"/);
+  });
+
   it('aceita o campo "class" do Tiled 1.9 no lugar de "type"', () => {
     const map = withLayer(miniMap(), LEVEL_LAYERS.objects, (l) => {
       l.objects = [{ type: '', class: 'spawn', x: 8, y: 16 }];

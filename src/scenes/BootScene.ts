@@ -1,7 +1,7 @@
 import Phaser from 'phaser';
 import { ASSETS } from '../config/assets';
 
-/** Carrega assets e passa para o título. Na F2: o mapa de teste e o tileset provisório. */
+/** Carrega assets e passa para o título. Na F3: a fase de teste e o tileset provisório. */
 export class BootScene extends Phaser.Scene {
   constructor() {
     super('BootScene');

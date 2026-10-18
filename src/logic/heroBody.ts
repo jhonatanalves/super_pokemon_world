@@ -11,7 +11,7 @@ import {
   type HeroMotion,
 } from './heroMotion';
 import type { Level, Point } from './level';
-import { moveBody, type Box } from './tileCollision';
+import { moveBody, type Box, type Cell } from './tileCollision';
 
 /** O herói na fase: movimento (heroMotion), posição e contatos com o cenário. */
 export interface HeroBody {
@@ -20,6 +20,8 @@ export interface HeroBody {
   readonly x: number;
   readonly y: number;
   readonly contacts: HeroContacts;
+  /** Tile em que a cabeça bateu neste passo (para os blocos da F3); null se não bateu. */
+  readonly bumped: Cell | null;
   /** Passos desde a morte; 0 enquanto vivo. */
   readonly deadSteps: number;
 }
@@ -33,6 +35,7 @@ export function createHeroBody(spawn: Point): HeroBody {
     x: spawn.x - HERO_SIZE.width / 2,
     y: spawn.y - HERO_SIZE.height,
     contacts: NO_CONTACTS,
+    bumped: null,
     deadSteps: 0,
   };
 }
@@ -72,10 +75,18 @@ export function stepHeroBody(
       x: moved.x,
       y: moved.y,
       contacts: NO_CONTACTS,
+      bumped: null,
       deadSteps: 0,
     };
   }
-  return { motion, x: moved.x, y: moved.y, contacts: moved.contacts, deadSteps: 0 };
+  return {
+    motion,
+    x: moved.x,
+    y: moved.y,
+    contacts: moved.contacts,
+    bumped: moved.ceilingCell,
+    deadSteps: 0,
+  };
 }
 
 /** Já passou o tempo de morte e a fase deve reiniciar. */

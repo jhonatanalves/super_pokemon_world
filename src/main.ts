@@ -8,6 +8,7 @@ import { WorldMapScene } from './scenes/WorldMapScene';
 import { LevelScene } from './scenes/LevelScene';
 import { HudScene } from './scenes/HudScene';
 import { PauseScene } from './scenes/PauseScene';
+import { GameOverScene } from './scenes/GameOverScene';
 
 const container = document.getElementById('game');
 if (!container) {
@@ -46,12 +47,13 @@ new Phaser.Game({
     default: 'arcade',
     arcade: {
       // Desde a F2 o herói não usa o Arcade: movimento, colisão com tiles e passo fixo vêm
-      // de src/logic/. O Arcade fica configurado para sobreposições de objetos (F3).
+      // de src/logic/. Na F3 as sobreposições (pisão, moedas) também ficaram em src/logic/,
+      // para serem testadas sem o Phaser; o Arcade segue configurado, sem uso.
       gravity: { x: 0, y: 0 },
       fps: PHYSICS.stepsPerSecond,
       fixedStep: true,
     },
   },
   input: { gamepad: true },
-  scene: [BootScene, TitleScene, WorldMapScene, LevelScene, HudScene, PauseScene],
+  scene: [BootScene, TitleScene, WorldMapScene, LevelScene, HudScene, PauseScene, GameOverScene],
 });

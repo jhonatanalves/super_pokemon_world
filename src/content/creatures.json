@@ -1,1 +1,7 @@
-{}
+{
+  "rattata": { "name": "Rattata", "behavior": "walker", "color": "#b13e53" },
+  "shellder": { "name": "Shellder", "behavior": "shell", "color": "#3b5dc9" },
+  "zubat": { "name": "Zubat", "behavior": "flyer", "color": "#566c86" },
+  "bellsprout": { "name": "Bellsprout", "behavior": "piper", "color": "#a7f070" },
+  "geodude": { "name": "Geodude", "behavior": "dropper", "color": "#94b0c2" }
+}

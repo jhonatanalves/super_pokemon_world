@@ -50,10 +50,13 @@ export const PHYSICS = {
   /** Passos fixos no máximo por quadro; o resto do atraso é descartado (aba em segundo plano). F2. */
   maxStepsPerFrame: 5,
 
-  /** Usados a partir da F3. */
+  /** Quique ao pisar num inimigo, sem e com o botão de pulo segurado. F3. */
   stompBounce: 250,
   stompBounceHeld: 380,
+  /** Invencibilidade depois de um dano que não mata. Regra da F3; aparece no jogo na F4. */
   hurtInvincibilityTime: 1.5,
+  /** Impulso ao pousar num bloco nota. Não está na tabela; aprovado na F3. */
+  noteBounce: 450,
 } as const;
 
 export type PhysicsConfig = { readonly [K in keyof typeof PHYSICS]: number };

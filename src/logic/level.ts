@@ -10,12 +10,14 @@ export const LEVEL_LAYERS = {
 /**
  * Forma de colisão de um tile, vinda da propriedade "shape" do tileset.
  * Numa ladeira, `left` e `right` são as alturas do piso (px, a partir da base do tile)
- * nas bordas esquerda e direita.
+ * nas bordas esquerda e direita. `hidden` é o bloco invisível (F3): só bloqueia quem sobe
+ * por baixo dele; não vem do tileset, e sim dos blocos da camada de objetos.
  */
 export type TileShape =
   | { readonly kind: 'empty' }
   | { readonly kind: 'solid' }
   | { readonly kind: 'oneWay' }
+  | { readonly kind: 'hidden' }
   | { readonly kind: 'slope'; readonly left: number; readonly right: number };
 
 export interface Point {
@@ -27,6 +29,20 @@ export interface Point {
 export interface Ruler {
   readonly base: Point;
   readonly tiles: number;
+}
+
+/**
+ * Objeto da camada de objetos que não é o início nem a régua (F3): inimigo, bloco, moeda,
+ * checkpoint. Quem o interpreta é o mundo (src/logic/world.ts) e a fábrica de entidades.
+ */
+export interface LevelObject {
+  readonly type: string;
+  /** Retângulo do Tiled em px; (x, y) é o canto superior esquerdo. Um ponto tem tamanho 0. */
+  readonly x: number;
+  readonly y: number;
+  readonly width: number;
+  readonly height: number;
+  readonly properties: ReadonlyMap<string, unknown>;
 }
 
 export interface Level {
@@ -41,8 +57,15 @@ export interface Level {
   /** Ponto dos pés do herói no início (centro, base). */
   readonly spawn: Point;
   readonly ruler: Ruler | null;
+  /** Demais objetos, na ordem do Tiled. */
+  readonly objects: readonly LevelObject[];
   /** Nome do tileset no Tiled, para o Phaser ligar a imagem. */
   readonly tilesetName: string;
+}
+
+/** Ponto dos pés de quem nasce no objeto: centro da base do retângulo. */
+export function objectFoot(o: LevelObject): Point {
+  return { x: o.x + o.width / 2, y: o.y + o.height };
 }
 
 export const EMPTY_TILE: TileShape = { kind: 'empty' };
@@ -158,9 +181,24 @@ function layerData(layer: Json, cols: number, rows: number): number[] {
   });
 }
 
-function parseObjects(layer: Json): { spawn: Point; ruler: Ruler | null } {
+/** Tamanho opcional de um objeto (pontos não têm). */
+function size(o: Json, key: string): number {
+  const value = o[key];
+  if (value === undefined) return 0;
+  if (typeof value !== 'number' || !Number.isFinite(value) || value < 0) {
+    fail(`objeto.${key} não é um tamanho válido`);
+  }
+  return value;
+}
+
+function parseObjects(layer: Json): {
+  spawn: Point;
+  ruler: Ruler | null;
+  others: LevelObject[];
+} {
   const spawns: Point[] = [];
   const rulers: Ruler[] = [];
+  const others: LevelObject[] = [];
   for (const item of list(layer, 'objects', 'camada de objetos')) {
     const o = obj(item, 'objeto');
     // O Tiled 1.9 chamou o campo de "class"; versões antes e depois usam "type".
@@ -173,11 +211,20 @@ function parseObjects(layer: Json): { spawn: Point; ruler: Ruler | null } {
         fail('a régua precisa da propriedade inteira "tiles" ≥ 1');
       }
       rulers.push({ base: point, tiles });
+    } else {
+      if (typeof type !== 'string' || type === '') fail('objeto sem "type"');
+      others.push({
+        type,
+        ...point,
+        width: size(o, 'width'),
+        height: size(o, 'height'),
+        properties: properties(o, `objeto "${type}"`),
+      });
     }
   }
   if (spawns.length !== 1) fail(`precisa de exatamente 1 objeto "spawn"; tem ${spawns.length}`);
   if (rulers.length > 1) fail(`no máximo 1 objeto "ruler"; tem ${rulers.length}`);
-  return { spawn: spawns[0], ruler: rulers[0] ?? null };
+  return { spawn: spawns[0], ruler: rulers[0] ?? null, others };
 }
 
 /** Valida o JSON do Tiled e devolve a fase com a colisão de cada tile. */
@@ -213,6 +260,11 @@ export function parseLevel(raw: unknown, tileSize: number): Level {
   const inside = (p: Point): boolean => p.x >= 0 && p.x <= width && p.y >= 0 && p.y <= height;
   if (!inside(objects.spawn)) fail('o início do herói está fora do mapa');
   if (objects.ruler && !inside(objects.ruler.base)) fail('a régua está fora do mapa');
+  for (const o of objects.others) {
+    if (!inside(o) || !inside({ x: o.x + o.width, y: o.y + o.height })) {
+      fail(`o objeto "${o.type}" em (${o.x}, ${o.y}) está fora do mapa`);
+    }
+  }
 
   return {
     cols,
@@ -223,6 +275,7 @@ export function parseLevel(raw: unknown, tileSize: number): Level {
     terrain,
     spawn: objects.spawn,
     ruler: objects.ruler,
+    objects: objects.others,
     tilesetName: tileset.name,
   };
 }

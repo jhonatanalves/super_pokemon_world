@@ -7,7 +7,13 @@ import {
   type HeroBody,
 } from '../../src/logic/heroBody';
 import type { HeroInput } from '../../src/logic/heroMotion';
-import { EMPTY_TILE, type Level, type Point, type TileShape } from '../../src/logic/level';
+import {
+  EMPTY_TILE,
+  type Level,
+  type LevelObject,
+  type Point,
+  type TileShape,
+} from '../../src/logic/level';
 
 const T = GAME_CONFIG.tileSize;
 const HALF = T / 2;
@@ -32,8 +38,8 @@ const SHAPES: Readonly<Record<string, TileShape>> = {
   d: slope(HALF, 0),
 };
 
-/** Fase a partir de texto, uma string por linha de tiles. */
-export function asciiLevel(lines: readonly string[]): Level {
+/** Fase a partir de texto, uma string por linha de tiles, com objetos opcionais (F3). */
+export function asciiLevel(lines: readonly string[], objects: readonly LevelObject[] = []): Level {
   const cols = lines[0].length;
   const spawns: Point[] = [];
   const terrain = lines.map((line, row) => {
@@ -56,7 +62,30 @@ export function asciiLevel(lines: readonly string[]): Level {
     terrain,
     spawn,
     ruler: null,
+    objects,
     tilesetName: 'teste',
+  };
+}
+
+/**
+ * Objeto do Tiled ocupando `cols` x `rows` tiles a partir de (col, row). Os inimigos nascem
+ * com os pés no centro da base do retângulo.
+ */
+export function tileObject(
+  type: string,
+  col: number,
+  row: number,
+  properties: Record<string, unknown> = {},
+  cols = 1,
+  rows = 1,
+): LevelObject {
+  return {
+    type,
+    x: col * T,
+    y: row * T,
+    width: cols * T,
+    height: rows * T,
+    properties: new Map(Object.entries(properties)),
   };
 }
 

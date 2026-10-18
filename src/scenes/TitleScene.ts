@@ -1,6 +1,7 @@
 import Phaser from 'phaser';
 import { GAME_CONFIG } from '../config/game';
 import { InputSystem } from '../systems/InputSystem';
+import type { LevelData } from './LevelScene';
 
 export class TitleScene extends Phaser.Scene {
   private controls!: InputSystem;
@@ -28,6 +29,8 @@ export class TitleScene extends Phaser.Scene {
   }
 
   update(): void {
-    if (this.controls.justPressed('start')) this.scene.start('LevelScene');
+    // Jogo novo: sem sessão, a fase começa com as vidas iniciais e sem moedas.
+    const newGame: LevelData = {};
+    if (this.controls.justPressed('start')) this.scene.start('LevelScene', newGame);
   }
 }

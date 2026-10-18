@@ -102,6 +102,21 @@ export function slopeSpeedFactor(
   return Math.sign(grade) === Math.sign(dir) ? row.uphill : row.downhill;
 }
 
+/**
+ * Joga o herói para cima com `speed` (pisão, bloco nota). Com o botão de pulo segurado vale
+ * como um pulo (gravidade menor e corte ao soltar); sem ele, o quique não é cortado.
+ */
+export function bounceHero(motion: HeroMotion, speed: number, jumpHeld: boolean): HeroMotion {
+  return {
+    ...motion,
+    vy: -speed,
+    state: transition(HERO_TRANSITIONS, motion.state, 'jump'),
+    canCoyote: false,
+    bufferedJumpAge: null,
+    jumpCut: !jumpHeld,
+  };
+}
+
 /** Mata o herói: ele para onde está e não aceita mais comandos. */
 export function killHero(motion: HeroMotion): HeroMotion {
   return { ...motion, vx: 0, vy: 0, state: transition(HERO_TRANSITIONS, motion.state, 'dead') };

@@ -8,6 +8,17 @@ export interface Box {
   readonly height: number;
 }
 
+/** As duas caixas se sobrepõem (encostar na borda não conta). */
+export function overlaps(a: Box, b: Box): boolean {
+  return a.x < b.x + b.width && b.x < a.x + a.width && a.y < b.y + b.height && b.y < a.y + a.height;
+}
+
+/** Posição de um tile na grade. */
+export interface Cell {
+  readonly col: number;
+  readonly row: number;
+}
+
 /** Lados em que o cenário bloqueou o corpo no último passo. */
 export interface TileContacts {
   readonly ground: boolean;
@@ -42,6 +53,8 @@ export interface MoveResult {
   readonly x: number;
   readonly y: number;
   readonly contacts: TileContacts;
+  /** Tile em que a cabeça bateu ao subir (o de maior sobreposição com o corpo); null se não bateu. */
+  readonly ceilingCell: Cell | null;
 }
 
 type Side = 'left' | 'right' | 'top' | 'bottom';
@@ -154,22 +167,31 @@ function moveX(level: Level, box: Box, dx: number): { x: number; left: boolean; 
   return { x, left, right };
 }
 
-/** Subindo: para no primeiro teto (face de baixo exposta de um bloco ou ladeira). */
-function moveUp(level: Level, box: Box, dy: number): { y: number; ceiling: boolean } {
+/**
+ * Subindo: para no primeiro teto (face de baixo exposta de um bloco, ladeira ou bloco
+ * invisível) e diz em qual tile bateu.
+ */
+function moveUp(level: Level, box: Box, dy: number): { y: number; cell: Cell | null } {
   const s = level.tileSize;
   const [colLeft, colRight] = tileSpan(box.x, box.width, s);
   const newTop = box.y + dy;
   // Só linhas inteiras acima do topo atual: a face de baixo delas fica em y ≤ topo.
   for (let row = Math.floor((box.y + EPSILON) / s) - 1; row >= Math.floor(newTop / s); row--) {
+    let hit: Cell | null = null;
+    let hitOverlap = 0;
     for (let col = colLeft; col <= colRight; col++) {
-      const tile = tileAt(level, col, row);
-      const hard = tile.kind === 'solid' || tile.kind === 'slope';
-      if (hard && isExposedFace(level, col, row, 'bottom')) {
-        return { y: (row + 1) * s, ceiling: true };
+      const kind = tileAt(level, col, row).kind;
+      const hard = kind === 'solid' || kind === 'slope' || kind === 'hidden';
+      if (!hard || !isExposedFace(level, col, row, 'bottom')) continue;
+      const overlap = Math.min(box.x + box.width, (col + 1) * s) - Math.max(box.x, col * s);
+      if (!hit || overlap > hitOverlap) {
+        hit = { col, row };
+        hitOverlap = overlap;
       }
     }
+    if (hit) return { y: (row + 1) * s, cell: hit };
   }
-  return { y: newTop, ceiling: false };
+  return { y: newTop, cell: null };
 }
 
 interface Ground {
@@ -243,7 +265,12 @@ export function moveBody(
 
   if (dy < 0) {
     const v = moveUp(level, { ...box, x: h.x }, dy);
-    return { x: h.x, y: v.y, contacts: { ...NO_TILE_CONTACTS, ...base, ceiling: v.ceiling } };
+    return {
+      x: h.x,
+      y: v.y,
+      contacts: { ...NO_TILE_CONTACTS, ...base, ceiling: v.cell !== null },
+      ceilingCell: v.cell,
+    };
   }
 
   const bottom = box.y + box.height;
@@ -255,11 +282,17 @@ export function moveBody(
   const flats = { from: bottom - (options.grounded ? options.stepUp : 0), to };
   const ground = findGround(level, h.x, box.width, slopes, flats);
   if (!ground) {
-    return { x: h.x, y: box.y + dy, contacts: { ...NO_TILE_CONTACTS, ...base } };
+    return {
+      x: h.x,
+      y: box.y + dy,
+      contacts: { ...NO_TILE_CONTACTS, ...base },
+      ceilingCell: null,
+    };
   }
   return {
     x: h.x,
     y: ground.surface - box.height,
     contacts: { ...NO_TILE_CONTACTS, ...base, ground: true, groundSlope: ground.slope },
+    ceilingCell: null,
   };
 }

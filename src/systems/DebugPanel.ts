@@ -3,16 +3,22 @@ import { CAMERA } from '../config/camera';
 import { GAME_CONFIG } from '../config/game';
 import { PHYSICS } from '../config/physics';
 import { DEBUG_COLORS } from '../config/placeholder';
-import type { Player } from '../entities/Player';
+import { enemyHitbox } from '../entities/enemies/Enemy';
 import type { CameraState } from '../logic/camera';
 import { HERO_SIZE } from '../logic/heroBody';
 import { isPMeterFull, stepsFor } from '../logic/heroMotion';
 import { tileAt, type Level } from '../logic/level';
 import { isExposedFace } from '../logic/tileCollision';
+import type { World } from '../logic/world';
 
 const DEPTH = 1000;
+/** Abaixo da linha do HUD. */
+const TEXT_TOP = 14;
 
-/** Painel de debug (F1): estado, velocidade, P-meter, câmera, FPS e caixas de colisão. */
+/**
+ * Painel de debug (F1): estado, velocidade, P-meter, câmera, FPS e caixas de colisão
+ * do herói, do terreno e dos inimigos (F3).
+ */
 export class DebugPanel {
   private readonly text: Phaser.GameObjects.Text;
   private readonly heroBox: Phaser.GameObjects.Graphics;
@@ -25,7 +31,7 @@ export class DebugPanel {
     shown = false,
   ) {
     this.text = scene.add
-      .text(2, 2, '', {
+      .text(2, TEXT_TOP, '', {
         fontFamily: 'monospace',
         fontSize: '8px',
         color: DEBUG_COLORS.text,
@@ -48,10 +54,11 @@ export class DebugPanel {
     this.setShown(!this.shown);
   }
 
-  update(player: Player, camera: CameraState): void {
+  update(world: World, camera: CameraState): void {
     if (!this.shown) return;
-    const m = player.motion;
-    const c = player.body.contacts;
+    const b = world.hero;
+    const m = b.motion;
+    const c = b.contacts;
     const pPercent = Math.round((m.pMeter / stepsFor(PHYSICS.pMeterChargeTime)) * 100);
     this.text.setText([
       `estado ${m.state}`,
@@ -63,7 +70,6 @@ export class DebugPanel {
     ]);
 
     // Graphics ignora roundPixels; arredonda para coincidir com o herói desenhado.
-    const b = player.body;
     this.heroBox.clear();
     this.heroBox.lineStyle(1, DEBUG_COLORS.heroBox);
     this.heroBox.strokeRect(
@@ -72,6 +78,18 @@ export class DebugPanel {
       HERO_SIZE.width - 1,
       HERO_SIZE.height - 1,
     );
+    this.heroBox.lineStyle(1, DEBUG_COLORS.enemyBox);
+    for (const enemy of world.enemies) {
+      const box = enemyHitbox(enemy);
+      if (box && box.width > 0 && box.height > 0) {
+        this.heroBox.strokeRect(
+          Math.round(box.x) + 0.5,
+          Math.round(box.y) + 0.5,
+          box.width - 1,
+          box.height - 1,
+        );
+      }
+    }
     // Zona morta da câmera: o herói anda entre as duas linhas sem a câmera acompanhar.
     const half = CAMERA.deadZoneWidth / 2;
     const top = camera.scrollY;
