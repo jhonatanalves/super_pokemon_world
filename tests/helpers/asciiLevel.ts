@@ -17,13 +17,14 @@ const slope = (left: number, right: number): TileShape => ({ kind: 'slope', left
 /**
  * Caracteres das fases de teste: `S` marca o tile do início (pés na base dele).
  * Ladeiras de 45°: `/` sobe para a direita, `\` desce. De 22,5° (2 tiles por altura):
- * `a` + `b` sobem para a direita, `c` + `d` descem.
+ * `a` + `b` sobem para a direita, `c` + `d` descem. `~` é água (F4c).
  */
 const SHAPES: Readonly<Record<string, TileShape>> = {
   '.': EMPTY_TILE,
   S: EMPTY_TILE,
   '#': { kind: 'solid' },
   '=': { kind: 'oneWay' },
+  '~': { kind: 'water' },
   '/': slope(0, T),
   '\\': slope(T, 0),
   a: slope(0, HALF),

@@ -65,14 +65,16 @@ export class DebugPanel {
     }
     const b = world.hero;
     const m = b.motion;
+    const riding = world.mounts.find((mount) => mount.state === 'ridden');
     const c = b.contacts;
     const pPercent = Math.round((m.pMeter / stepsFor(PHYSICS.pMeterChargeTime)) * 100);
     this.text.setText([
       `estado ${m.state}`,
       `vx ${m.vx.toFixed(1)}  vy ${m.vy.toFixed(1)}`,
-      `P ${pPercent}%${isPMeterFull(m) ? ' cheio' : ''}  chão ${m.airSteps === 0 ? 'sim' : 'não'}`,
+      `P ${pPercent}%${isPMeterFull(m) ? ' cheio' : ''}  chão ${c.ground ? 'sim' : 'não'}`,
       `ladeira ${c.ground ? c.groundSlope : '-'}`,
       `forma ${world.power.form}  invenc ${(world.power.starSteps * FIXED_DT).toFixed(1)}s`,
+      `montaria ${riding ? riding.kind : '-'}  pulos ${world.airJumps}  surf ${world.surfSteps}`,
       `câmera x ${camera.scrollX}  antecip ${camera.offset}`,
       `fps ${Math.round(this.scene.game.loop.actualFps)}`,
     ]);
@@ -92,7 +94,8 @@ export class DebugPanel {
     }
     // Itens de power-up e faíscas (F4).
     g.lineStyle(1, DEBUG_COLORS.itemBox);
-    for (const box of [...world.powerItems, ...world.sparks]) outline(box);
+    for (const box of [...world.powerItems, ...world.sparks, ...world.shots]) outline(box);
+    for (const mount of world.mounts) if (mount.state !== 'ridden') outline(mount);
     // Zona morta da câmera: o herói anda entre as duas linhas sem a câmera acompanhar.
     const half = CAMERA.deadZoneWidth / 2;
     const top = camera.scrollY;
@@ -120,7 +123,9 @@ function drawCollision(g: Phaser.GameObjects.Graphics, level: Level): void {
       const tile = tileAt(level, col, row);
       const x = col * s;
       const y = row * s;
-      if (tile.kind === 'oneWay') {
+      const waterTop = tile.kind === 'water' && tileAt(level, col, row - 1).kind !== 'water';
+      if (tile.kind === 'oneWay' || waterTop) {
+        // Superfície da água (F4c): só segura a montaria aquática e o Surfista.
         g.lineBetween(x, y + 0.5, x + s, y + 0.5);
       } else if (tile.kind === 'slope') {
         g.lineBetween(x, y + s - tile.left, x + s, y + s - tile.right);

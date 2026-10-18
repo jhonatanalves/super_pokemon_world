@@ -1,54 +1,32 @@
 import { ENEMIES } from '../config/enemies';
+import { MOUNTS } from '../config/mounts';
 import { EFFECTS } from '../config/placeholder';
 import { FIXED_DT, PHYSICS, type PhysicsConfig } from '../config/physics';
 import { POWERUPS } from '../config/powerups';
-import {
-  activateEnemy,
-  canBeStomped,
-  enemyHitbox,
-  hitByAttack,
-  isAttackable,
-  isGone,
-  isSlidingShell,
-  stepEnemy,
-  stompEnemy,
-  touchEnemy,
-  type Enemy,
-} from '../entities/enemies/Enemy';
-import { createEnemy } from '../entities/EntityFactory';
+import { activateEnemy, isGone, stepEnemy } from '../entities/enemies/Enemy';
 import {
   activateItem,
   createBlockItem,
   createDroppedItem,
-  createPlacedItem,
   isItemGone,
   stepPowerItem,
-  type PowerItem,
 } from '../entities/items/PowerItem';
-import { canShoot, createSpark, spinBox, stepSpark, type Spark } from './attacks';
+import { isMountGone, stepMount } from '../entities/mounts/Mount';
 import {
-  blockIndexAt,
-  hitBlock,
-  isOnNoteBlock,
-  parseBlock,
-  tickBlocks,
-  withBlocks,
-  type Block,
-} from './blocks';
-import type { GameContent } from './creatures';
-import { NOT_HURT, takeDamage, tickHurt, type HurtState } from './damage';
+  canShoot,
+  createSpark,
+  spinBox,
+  stepShot,
+  stepSpark,
+  type Shot,
+  type Spark,
+} from './attacks';
+import { blockIndexAt, hitBlock, isOnNoteBlock, tickBlocks, withBlocks } from './blocks';
+import { attackArea, heroContacts, projectileHits, shellHits } from './combat';
+import { takeDamage, tickHurt } from './damage';
 import type { GameEvent } from './events';
-import {
-  createHeroBody,
-  heroBox,
-  heroCenter,
-  resizeHero,
-  stepHeroBody,
-  type HeroBody,
-} from './heroBody';
+import { heroBox, heroCenter, resizeHero, stepHeroBody } from './heroBody';
 import { bounceHero, killHero, stepsFor, type HeroInput } from './heroMotion';
-import { parseCheckpoint, parseItem, type Checkpoint, type Item } from './items';
-import { objectFoot, type Level, type Point } from './level';
 import {
   blockRelease,
   collectPower,
@@ -56,138 +34,16 @@ import {
   hasStar,
   heroHeightFor,
   isBig,
-  START_POWER,
   tickPower,
   useReserve,
-  type PowerState,
 } from './powerups';
-import { addCoins, loseLife, reachCheckpoint, type Session } from './session';
-import { isStomp, stompBounceSpeed } from './stomp';
+import { heroSetup, nextSurfSteps, riddenMount, stepRider, throwRider, tryMount } from './riding';
+import { addCoins, loseLife, reachCheckpoint } from './session';
+import { stompBounceSpeed } from './stomp';
 import { overlaps, type Box } from './tileCollision';
+import type { View, World } from './worldState';
 
-/** Efeito só visual: moeda saindo de um bloco ou pedaços de um tijolo quebrado. */
-export interface Popup {
-  readonly kind: 'coin' | 'debris';
-  /** Canto superior esquerdo do bloco que a soltou. */
-  readonly x: number;
-  readonly y: number;
-  readonly steps: number;
-}
-
-/**
- * Tudo o que muda numa tentativa da fase. Sem Phaser: a LevelScene só chama stepWorld no
- * passo fixo, emite os eventos e desenha.
- */
-export interface World {
-  /** Fase como veio do Tiled. */
-  readonly level: Level;
-  /** Terreno com os blocos por cima; é nele que tudo colide. */
-  readonly collision: Level;
-  readonly hero: HeroBody;
-  readonly hurt: HurtState;
-  /** Forma do herói e invencibilidade (F4). Toda tentativa começa pequena. */
-  readonly power: PowerState;
-  readonly enemies: readonly Enemy[];
-  readonly blocks: readonly Block[];
-  readonly items: readonly Item[];
-  /** Itens de power-up soltos (F4). */
-  readonly powerItems: readonly PowerItem[];
-  /** Faíscas do estado elétrico na tela (F4). */
-  readonly sparks: readonly Spark[];
-  /** Passos que faltam do giro do estado voador; 0 = sem giro (F4). */
-  readonly spinSteps: number;
-  /** Botão de correr/atacar no passo anterior, para detectar o aperto (F4). */
-  readonly runHeld: boolean;
-  /** Botão da reserva no passo anterior (F4b). O item guardado fica em `session.reserve`. */
-  readonly reserveHeld: boolean;
-  /** Próximo id livre para um item de power-up. */
-  readonly nextId: number;
-  readonly checkpoint: Checkpoint | null;
-  readonly session: Session;
-  /** Moedas Pokébola coletadas nesta tentativa. */
-  readonly pokeballs: number;
-  readonly pokeballsTotal: number;
-  readonly popups: readonly Popup[];
-}
-
-/** Faixa horizontal da tela, para acordar os inimigos. */
-export interface View {
-  readonly left: number;
-  readonly right: number;
-}
-
-/** Monta a fase a partir dos objetos do Tiled. Objetos com erro ficam de fora e vão em `errors`. */
-export function createWorld(
-  level: Level,
-  content: GameContent,
-  session: Session,
-): { world: World; errors: string[] } {
-  const blocks: Block[] = [];
-  const items: Item[] = [];
-  const checkpoints: Checkpoint[] = [];
-  const powerItems: PowerItem[] = [];
-  const enemies: Enemy[] = [];
-  const errors: string[] = [];
-  for (const o of level.objects) {
-    const block = parseBlock(o, level.tileSize, content.items);
-    const item = block ? null : parseItem(o);
-    const checkpoint = block || item ? null : parseCheckpoint(o);
-    const powerItem = content.items.get(o.type);
-    if (block) blocks.push(block);
-    else if (item) items.push(item);
-    else if (checkpoint) checkpoints.push(checkpoint);
-    else if (powerItem) {
-      powerItems.push(createPlacedItem(powerItems.length, powerItem.power, objectFoot(o)));
-    } else {
-      const spawned = createEnemy(o, enemies.length, content.creatures);
-      if (spawned.ok) enemies.push(spawned.enemy);
-      else errors.push(spawned.error);
-    }
-  }
-  if (checkpoints.length > 1) {
-    throw new Error(`Mapa inválido: no máximo 1 checkpoint; tem ${checkpoints.length}`);
-  }
-  const checkpoint = checkpoints[0] ?? null;
-  const start: Point = session.checkpoint && checkpoint ? checkpoint.respawn : level.spawn;
-  const world: World = {
-    level,
-    collision: withBlocks(level, blocks),
-    hero: createHeroBody(start, heroHeightFor(START_POWER.form)),
-    hurt: NOT_HURT,
-    power: START_POWER,
-    enemies,
-    blocks,
-    items,
-    powerItems,
-    sparks: [],
-    spinSteps: 0,
-    // Como o pulo: o botão que abriu a fase, se ainda estiver pressionado, não vira ataque.
-    runHeld: true,
-    reserveHeld: true,
-    nextId: powerItems.length,
-    checkpoint,
-    session,
-    pokeballs: 0,
-    pokeballsTotal: items.filter((i) => i.kind === 'pokeball').length,
-    popups: [],
-  };
-  return { world, errors };
-}
-
-/** Evento inicial do HUD. */
-export function levelStartedEvent(world: World): GameEvent {
-  return {
-    type: 'level-started',
-    lives: world.session.lives,
-    coins: world.session.coins,
-    pokeballs: world.pokeballs,
-    pokeballsTotal: world.pokeballsTotal,
-    form: world.power.form,
-    star: hasStar(world.power),
-    reserve: world.session.reserve,
-  };
-}
-
+export { createWorld, levelStartedEvent, type Popup, type View, type World } from './worldState';
 /** Meio da tela, de onde cai o item da reserva; sem tela finita (testes), o herói. */
 function viewCenter(view: View, fallback: number): number {
   const center = (view.left + view.right) / 2;
@@ -199,18 +55,11 @@ function inView(box: Box, view: View): boolean {
   return box.x + box.width > view.left - margin && box.x < view.right + margin;
 }
 
-/** Derrota quem encosta em `area` e pode ser atacado. */
-function attackArea(enemies: readonly Enemy[], area: Box): Enemy[] {
-  return enemies.map((e) => {
-    const box = enemyHitbox(e);
-    return box && isAttackable(e) && overlaps(area, box) ? hitByAttack(e) : e;
-  });
-}
-
 /**
- * Um passo fixo da fase: herói, cabeçadas nos blocos, bloco nota, inimigos, itens de power-up,
- * conchas, faíscas e giro, contato herói × inimigo, itens, checkpoint. Devolve o mundo novo e
- * os eventos do passo. Com o herói morto, só ele anda (a contagem até reiniciar); o resto congela.
+ * Um passo fixo da fase: herói (a pé, nadando ou montado), cabeçadas nos blocos, bloco nota,
+ * inimigos, itens de power-up, montarias, conchas, faíscas, cuspe e giro, contato herói ×
+ * inimigo, itens, checkpoint. Devolve o mundo novo e os eventos do passo. Com o herói morto,
+ * só ele anda (a contagem até reiniciar); o resto congela.
  */
 export function stepWorld(
   world: World,
@@ -227,10 +76,9 @@ export function stepWorld(
   const s = world.level.tileSize;
   let session = world.session;
   let power = tickPower(world.power);
-  // Voador: segurando o pulo na queda, plana (cai devagar).
-  const gliding = power.form === 'flying' && input.jump && world.hero.motion.vy > 0;
-  const heroPhysics = gliding ? { ...p, maxFallSpeed: POWERUPS.glideFallSpeed } : p;
-  let hero = stepHeroBody(world.hero, input, world.collision, dt, heroPhysics);
+  let mount = riddenMount(world.mounts);
+  const setup = heroSetup(world.hero, power, mount, world.surfSteps, world.collision, input, p, dt);
+  let hero = stepHeroBody(world.hero, setup.input, world.collision, dt, setup.physics, setup.mods);
   let hurt = tickHurt(world.hurt);
   let blocks = tickBlocks(world.blocks);
   let collision = world.collision;
@@ -275,7 +123,7 @@ export function stepWorld(
   };
   if (hero.contacts.ground && isOnNoteBlock(blocks, heroBox(hero), s)) bounce(p.noteBounce);
 
-  // Inimigos e itens postos no Tiled: acordam perto da tela; os acordados andam.
+  // Inimigos, itens e montarias: os do Tiled acordam perto da tela; os acordados andam.
   const ctx = { level: collision, hero: heroBox(hero), dt };
   let enemies = world.enemies
     .map((e) => {
@@ -289,70 +137,88 @@ export function stepWorld(
       return inView(item, view) ? activateItem(item, heroX) : item;
     })
     .filter((item) => !isItemGone(item, world.level.height));
+  let mounts = world.mounts
+    .map((m) => stepMount(m, collision, dt))
+    .filter((m) => m.y <= world.level.height)
+    .filter((m) => !isMountGone(m, view.left, view.right, ENEMIES.activationMargin));
 
-  // Concha deslizando mata quem encostar nela (e outra concha deslizando também morre).
-  const shells = enemies.filter(isSlidingShell);
-  enemies = enemies.map((e) => {
-    const box = enemyHitbox(e);
-    if (!box) return e;
-    const hit = shells.some((sh) => {
-      const shellBox = sh.id !== e.id ? enemyHitbox(sh) : null;
-      return shellBox !== null && overlaps(box, shellBox);
-    });
-    return hit ? hitByAttack(e) : e;
-  });
-
-  // Ataques: X solta faísca (elétrico) ou gira no ar (voador).
+  // Montaria: montado, pulo extra, desmontar, engolir e cuspir; a pé, cair em cima monta.
   const attackPressed = input.run && !world.runHeld;
+  const formHeight = heroHeightFor(power.form);
+  let airJumps = world.airJumps;
+  let shots = world.shots
+    .map((sh) => stepShot(sh, collision, dt))
+    .filter((sh): sh is Shot => sh !== null && inView(sh, view));
+  mount = mounts.find((m) => m.state === 'ridden') ?? null;
+  if (mount) {
+    const ride = stepRider(
+      world.hero,
+      hero,
+      mount,
+      input,
+      attackPressed,
+      airJumps,
+      enemies,
+      shots,
+      formHeight,
+      p,
+      dt,
+    );
+    hero = ride.hero;
+    airJumps = ride.airJumps;
+    enemies = [...ride.enemies];
+    shots = [...ride.shots];
+    const ridden = ride.mount;
+    mounts = mounts.map((m) => (m.id === ridden.id ? ridden : m));
+    if (ride.dismounted) mount = null;
+  } else if (hero.motion.vy > 0) {
+    const mounted = tryMount(hero, mounts);
+    if (mounted) {
+      hero = mounted.hero;
+      mounts = mounted.mounts;
+      mount = riddenMount(mounts);
+      airJumps = MOUNTS.airJumps;
+    }
+  }
+
+  // Concha deslizando, faíscas (elétrico), cuspe e giro (voador). Montado, sem habilidades.
+  enemies = shellHits(enemies);
   let sparks = world.sparks
     .map((sp) => stepSpark(sp, collision, dt))
     .filter((sp): sp is Spark => sp !== null && inView(sp, view));
-  if (attackPressed && power.form === 'electric' && canShoot(sparks)) {
+  if (!mount && attackPressed && power.form === 'electric' && canShoot(sparks)) {
     sparks.push(createSpark(heroBox(hero), hero.motion.facing));
   }
-  // A faísca some no primeiro inimigo que tocar; o imune não morre.
-  enemies = enemies.map((e) => {
-    const box = enemyHitbox(e);
-    const i = box ? sparks.findIndex((sp) => overlaps(sp, box)) : -1;
-    if (i < 0) return e;
-    sparks = sparks.filter((_, j) => j !== i);
-    return hitByAttack(e);
-  });
-  let spinSteps = power.form === 'flying' ? Math.max(world.spinSteps - 1, 0) : 0;
-  if (attackPressed && power.form === 'flying' && !hero.contacts.ground && spinSteps === 0) {
-    spinSteps = stepsFor(POWERUPS.spin.time, dt);
-  }
+  const sparked = projectileHits(enemies, sparks);
+  const spat = projectileHits(sparked.enemies, shots);
+  enemies = spat.enemies;
+  sparks = sparked.projectiles;
+  shots = spat.projectiles;
+  let spinSteps = power.form === 'flying' && !mount ? Math.max(world.spinSteps - 1, 0) : 0;
+  const canSpin = !mount && power.form === 'flying' && !hero.contacts.ground;
+  if (attackPressed && canSpin && spinSteps === 0) spinSteps = stepsFor(POWERUPS.spin.time, dt);
   if (spinSteps > 0) enemies = attackArea(enemies, spinBox(heroBox(hero)));
 
   // Herói × inimigos: invencível derrota no toque; senão pisão, chute da concha ou dano.
-  const box = heroBox(hero);
-  const star = hasStar(power);
-  let stomped = false;
-  let hurtByEnemy = false;
-  enemies = enemies.map((e) => {
-    const enemyBox = enemyHitbox(e);
-    if (!enemyBox || !overlaps(box, enemyBox)) return e;
-    if (star) return hitByAttack(e);
-    if (canBeStomped(e) && isStomp(box, hero.motion.vy, enemyBox)) {
-      stomped = true;
-      return stompEnemy(e, heroX);
-    }
-    const touch = touchEnemy(e, heroX);
-    if (touch.effect === 'hurt') hurtByEnemy = true;
-    return touch.enemy;
-  });
-  if (stomped) bounce(stompBounceSpeed(input.jump, p));
-  if (hurtByEnemy) {
-    // Grande ou especial aguenta o toque e perde um nível; o pequeno morre.
-    const damage = takeDamage(hurt, isBig(power.form), dt, p);
+  const contact = heroContacts(enemies, heroBox(hero), hero.motion.vy, hasStar(power));
+  enemies = contact.enemies;
+  if (contact.stomped) bounce(stompBounceSpeed(input.jump, p));
+  if (contact.hurt) {
+    // Montado, o herói cai da montaria e não perde nada; a pé, grande ou especial perde um
+    // nível (soltando o item da reserva) e o pequeno morre.
+    const damage = takeDamage(hurt, mount !== null || isBig(power.form), dt, p);
     hurt = damage.state;
     if (damage.outcome !== 'ignored') events.push({ type: 'player-damaged' });
-    if (damage.outcome === 'survived') {
+    if (damage.outcome === 'survived' && mount) {
+      const thrown = throwRider(hero, mount, formHeight, p.stompBounce);
+      hero = thrown.hero;
+      const fled = thrown.mount;
+      mounts = mounts.map((m) => (m.id === fled.id ? fled : m));
+      mount = null;
+    } else if (damage.outcome === 'survived') {
       power = damagePower(power).state;
-      // O item da reserva é solto: cai do alto da tela.
       if (session.reserve) {
-        const centerX = viewCenter(view, heroX);
-        powerItems.push(createDroppedItem(nextId++, session.reserve, centerX));
+        powerItems.push(createDroppedItem(nextId++, session.reserve, viewCenter(view, heroX)));
         session = { ...session, reserve: null };
       }
     }
@@ -373,7 +239,7 @@ export function stepWorld(
     power = used.state;
     session = { ...session, reserve: used.reserve };
   }
-  hero = resizeHero(hero, heroHeightFor(power.form));
+  hero = resizeHero(hero, mount ? MOUNTS.riderHeight : heroHeightFor(power.form));
   if (power.form !== world.power.form || hasStar(power) !== hasStar(world.power)) {
     events.push({ type: 'power-changed', form: power.form, star: hasStar(power) });
   }
@@ -416,6 +282,10 @@ export function stepWorld(
       powerItems,
       sparks,
       spinSteps,
+      mounts,
+      shots,
+      airJumps,
+      surfSteps: nextSurfSteps(world.surfSteps, power, hero, collision),
       runHeld: input.run,
       reserveHeld: input.reserve,
       nextId,

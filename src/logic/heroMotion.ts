@@ -120,6 +120,71 @@ export function bounceHero(motion: HeroMotion, speed: number, jumpHeld: boolean)
   };
 }
 
+/** Água em volta do herói neste passo (F4c); null fora d'água. */
+export interface SwimContext {
+  /** Cabeça fora d'água: o pulo daqui sai da água com o impulso normal. */
+  readonly surface: boolean;
+  /** Multiplica a velocidade de nado (o Surfista nada mais rápido). */
+  readonly speed: number;
+}
+
+/**
+ * Nadando: afunda devagar até `swimMaxFall`; cada aperto do pulo é uma braçada para cima,
+ * ou um pulo para fora na superfície. Sem P-meter, coyote nem buffer.
+ */
+function stepSwim(
+  prev: HeroMotion,
+  input: HeroInput,
+  contacts: HeroContacts,
+  swim: SwimContext,
+  dt: number,
+  p: PhysicsConfig,
+): HeroMotion {
+  let vx = prev.vx;
+  let vy = prev.vy;
+  if (contacts.ground && vy > 0) vy = 0;
+  if (contacts.ceiling && vy < 0) vy = 0;
+  if ((contacts.wallLeft && vx < 0) || (contacts.wallRight && vx > 0)) vx = 0;
+
+  const dir = (input.right ? 1 : 0) - (input.left ? 1 : 0);
+  vx =
+    dir === 0
+      ? approach(vx, 0, p.swimDecel * dt)
+      : approach(vx, dir * p.swimSpeed * swim.speed, p.swimAccel * dt);
+  const stroke = input.jump && !prev.jumpHeld;
+  if (stroke) vy = -(swim.surface ? p.jumpImpulse : p.swimStroke);
+  else vy = Math.min(vy + p.swimGravity * dt, p.swimMaxFall);
+
+  // Agachado não entra direto na água: passa um passo parado.
+  const desired: HeroState = prev.state === 'crouch' ? 'idle' : 'swim';
+  return {
+    vx,
+    vy,
+    facing: dir > 0 ? 1 : dir < 0 ? -1 : prev.facing,
+    state: transition(HERO_TRANSITIONS, prev.state, desired),
+    airSteps: 0,
+    canCoyote: false,
+    bufferedJumpAge: null,
+    pMeter: 0,
+    jumpHeld: input.jump,
+    jumpCut: true,
+  };
+}
+
+/**
+ * O pulo comum ainda vale neste passo: no chão, ou logo depois de sair da borda (coyote).
+ * Mesma regra de stepHero; a montaria usa para saber quando o pulo é o extra, no ar (F4c).
+ */
+export function canGroundJump(
+  prev: HeroMotion,
+  contacts: HeroContacts,
+  dt: number = FIXED_DT,
+  p: PhysicsConfig = PHYSICS,
+): boolean {
+  if (contacts.ground) return true;
+  return prev.canCoyote && prev.airSteps + 1 <= stepsFor(p.coyoteTime, dt);
+}
+
 /** Mata o herói: ele para onde está e não aceita mais comandos. */
 export function killHero(motion: HeroMotion): HeroMotion {
   return { ...motion, vx: 0, vy: 0, state: transition(HERO_TRANSITIONS, motion.state, 'dead') };
@@ -127,7 +192,7 @@ export function killHero(motion: HeroMotion): HeroMotion {
 
 /**
  * Avança o herói um passo fixo. Recebe os contatos do passo anterior e devolve
- * a velocidade que o corpo deve usar no próximo.
+ * a velocidade que o corpo deve usar no próximo. Na água (`swim`), nada (F4c).
  */
 export function stepHero(
   prev: HeroMotion,
@@ -136,8 +201,10 @@ export function stepHero(
   dt: number = FIXED_DT,
   p: PhysicsConfig = PHYSICS,
   slopes: SlopeSpeedTable = SLOPE_SPEED,
+  swim: SwimContext | null = null,
 ): HeroMotion {
   if (prev.state === 'dead') return prev;
+  if (swim) return stepSwim(prev, input, contacts, swim, dt, p);
   const ground = contacts.ground;
   let vx = prev.vx;
   let vy = prev.vy;

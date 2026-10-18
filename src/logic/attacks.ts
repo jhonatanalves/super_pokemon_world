@@ -1,3 +1,4 @@
+import { MOUNTS, type MountsConfig } from '../config/mounts';
 import { PHYSICS } from '../config/physics';
 import { POWERUPS, type PowerUpsConfig } from '../config/powerups';
 import type { Level } from './level';
@@ -51,6 +52,30 @@ export function stepSpark(
 /** Pode soltar outra faísca: há menos de `max` na tela. */
 export function canShoot(sparks: readonly Spark[], c: PowerUpsConfig = POWERUPS): boolean {
   return sparks.length < c.spark.max;
+}
+
+/** Inimigo cuspido pela montaria aquática (F4c): anda reto, sem gravidade. */
+export interface Shot extends Box {
+  readonly vx: number;
+}
+
+/** Cuspe saindo da frente do herói montado, na altura da montaria. */
+export function createShot(rider: Box, facing: 1 | -1, c: MountsConfig = MOUNTS): Shot {
+  const { width, height, speed } = c.shot;
+  return {
+    x: facing > 0 ? rider.x + rider.width : rider.x - width,
+    y: rider.y + rider.height - c.height + (c.height - height) / 2,
+    width,
+    height,
+    vx: facing * speed,
+  };
+}
+
+/** Um passo do cuspe; some (null) ao bater numa parede. */
+export function stepShot(shot: Shot, level: Level, dt: number): Shot | null {
+  const moved = moveBody(level, shot, shot.vx * dt, 0, { grounded: false, stepUp: 0, snap: 0 });
+  if (moved.contacts.wallLeft || moved.contacts.wallRight) return null;
+  return { ...shot, x: moved.x };
 }
 
 /** Área do giro: a caixa do herói alargada `reach` para cada lado. */

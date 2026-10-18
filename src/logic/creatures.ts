@@ -2,8 +2,8 @@ import { FORMS, isPower, type Form, type Power } from './powerups';
 
 /**
  * Leitura de src/content/creatures.json: inimigos (por tipo de objeto do Tiled: nome,
- * comportamento e cor provisória), formas do herói (F4) e itens de power-up (F4).
- * Nomes de Pokémon e de itens só existem lá.
+ * comportamento e cor provisória), formas do herói (F4), itens de power-up (F4) e
+ * montarias (F4c). Nomes de Pokémon e de itens só existem lá.
  */
 
 export const BEHAVIORS = ['walker', 'shell', 'flyer', 'piper', 'dropper'] as const;
@@ -37,10 +37,24 @@ export interface ItemInfo {
 /** Itens por tipo de objeto do Tiled. */
 export type ItemCatalog = ReadonlyMap<string, ItemInfo>;
 
+/** Tipo de montaria (F4c): `water` nada sem afundar; `land` corre e pula mais. */
+export const MOUNT_KINDS = ['water', 'land'] as const;
+export type MountKind = (typeof MOUNT_KINDS)[number];
+
+export interface MountInfo {
+  readonly name: string;
+  readonly kind: MountKind;
+  readonly color: number;
+}
+
+/** Montarias por tipo de objeto do Tiled. */
+export type MountCatalog = ReadonlyMap<string, MountInfo>;
+
 export interface GameContent {
   readonly creatures: Creatures;
   readonly forms: FormCatalog;
   readonly items: ItemCatalog;
+  readonly mounts: MountCatalog;
 }
 
 type Json = Record<string, unknown>;
@@ -113,6 +127,17 @@ function parseItems(raw: Json): ItemCatalog {
   return result;
 }
 
+function parseMounts(raw: Json): MountCatalog {
+  const result = new Map<string, MountInfo>();
+  for (const [type, value] of Object.entries(raw)) {
+    const { fields, name, color } = entry(`montaria "${type}"`, value);
+    const kind = MOUNT_KINDS.find((k) => k === fields.mount);
+    if (!kind) fail(`montaria "${type}": "mount" precisa ser um de ${MOUNT_KINDS.join(', ')}`);
+    result.set(type, { name, kind, color });
+  }
+  return result;
+}
+
 export function parseContent(raw: unknown): GameContent {
   if (typeof raw !== 'object' || raw === null || Array.isArray(raw)) fail('não é um objeto');
   const json = raw as Json;
@@ -120,6 +145,7 @@ export function parseContent(raw: unknown): GameContent {
     creatures: parseEnemies(section(json, 'enemies')),
     forms: parseForms(section(json, 'heroForms')),
     items: parseItems(section(json, 'items')),
+    mounts: parseMounts(section(json, 'mounts')),
   };
 }
 

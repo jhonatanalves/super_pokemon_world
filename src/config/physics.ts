@@ -57,6 +57,17 @@ export const PHYSICS = {
   hurtInvincibilityTime: 1.5,
   /** Impulso ao pousar num bloco nota. Não está na tabela; aprovado na F3. */
   noteBounce: 450,
+
+  /**
+   * Natação básica (F4c, aprovado: opção "a"). Pontos de partida; a F6 completa a natação.
+   * Na água o herói afunda devagar, e cada aperto do pulo é uma braçada para cima.
+   */
+  swimSpeed: 60,
+  swimAccel: 300,
+  swimDecel: 300,
+  swimGravity: 300,
+  swimMaxFall: 60,
+  swimStroke: 150,
 } as const;
 
 export type PhysicsConfig = { readonly [K in keyof typeof PHYSICS]: number };

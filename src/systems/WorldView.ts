@@ -1,8 +1,9 @@
 import Phaser from 'phaser';
-import { EFFECTS, OBJECT_COLORS, POWER_COLORS } from '../config/placeholder';
+import { EFFECTS, MOUNT_ART, OBJECT_COLORS, POWER_COLORS } from '../config/placeholder';
 import { isDefeated, type Enemy } from '../entities/enemies/Enemy';
 import { piperVisibleBox } from '../entities/enemies/PiperEnemy';
 import type { PowerItem } from '../entities/items/PowerItem';
+import type { Mount } from '../entities/mounts/Mount';
 import { stepsFor } from '../logic/heroMotion';
 import type { Block } from '../logic/blocks';
 import { powerColor, type GameContent } from '../logic/creatures';
@@ -69,6 +70,22 @@ export class WorldView {
     for (const block of world.blocks) this.drawBlock(block, s);
 
     for (const enemy of world.enemies) this.drawEnemy(enemy);
+    for (const mount of world.mounts) this.drawMount(mount);
+
+    for (const shot of world.shots) {
+      g.fillStyle(OBJECT_COLORS.enemyOutline).fillRect(
+        Math.round(shot.x),
+        Math.round(shot.y),
+        shot.width,
+        shot.height,
+      );
+      g.fillStyle(POWER_COLORS.shot).fillRect(
+        Math.round(shot.x) + 1,
+        Math.round(shot.y) + 1,
+        shot.width - 2,
+        shot.height - 2,
+      );
+    }
 
     for (const spark of world.sparks) {
       const x = Math.round(spark.x);
@@ -105,6 +122,26 @@ export class WorldView {
       const x = pop.x + s / 2 - piece / 2 + dx * (piece + spread);
       const y = pop.y + dy * (s / 2) + fall - (1 - dy) * spread;
       g.fillRect(Math.round(x), Math.round(y), piece, piece);
+    }
+  }
+
+  /** Montaria: corpo com contorno e a cabeça do lado para onde olha; a que foge fica apagada. */
+  private drawMount(m: Mount): void {
+    const info = this.content.mounts.get(m.creature);
+    if (!info) return;
+    const g = this.g;
+    const x = Math.round(m.x);
+    const y = Math.round(m.y);
+    const alpha = m.state === 'flee' ? EFFECTS.defeatedAlpha : 1;
+    g.fillStyle(OBJECT_COLORS.enemyOutline, alpha).fillRect(x, y, m.width, m.height);
+    g.fillStyle(info.color, alpha).fillRect(x + 1, y + 1, m.width - 2, m.height - 2);
+    const head = MOUNT_ART.head;
+    const headX = m.dir > 0 ? x + m.width - head / 2 : x - head / 2;
+    g.fillStyle(OBJECT_COLORS.enemyOutline, alpha).fillRect(headX, y - head / 2, head, head);
+    g.fillStyle(info.color, alpha).fillRect(headX + 1, y - head / 2 + 1, head - 2, head - 2);
+    // Inimigo na boca (aquática, pronto para cuspir) ou pulo extra guardado (de terra).
+    if (m.stomach || m.bonusJumps > 0) {
+      g.fillStyle(POWER_COLORS.shot).fillRect(x + m.width / 2 - 2, y + 4, 4, 4);
     }
   }
 

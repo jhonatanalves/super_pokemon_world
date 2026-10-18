@@ -33,6 +33,13 @@ export const POWERUPS = {
     max: 2,
   },
 
+  /** Surfista (F4c): nada mais rápido e anda sobre a água por um tempo. */
+  surf: {
+    swimSpeed: 1.5,
+    /** Tempo seguido em pé sobre a água até afundar; zera ao pisar em chão firme. */
+    waterWalkTime: 2,
+  },
+
   /** Estado voador: segurando o pulo na queda, cai no máximo a esta velocidade. */
   glideFallSpeed: 60,
   /** Giro de ataque no ar (botão de correr/atacar). */

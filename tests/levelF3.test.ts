@@ -83,6 +83,7 @@ describe('creatures.json e a regra dos nomes', () => {
     const pokemon = [
       ...[...CREATURES.values()].map((c) => c.name),
       ...Object.values(CONTENT.forms).map((f) => f.name),
+      ...[...CONTENT.mounts.values()].map((m) => m.name),
     ].map((n) => n.toLowerCase());
     // Itens: como palavra inteira, porque "Pena" está dentro de "apenas".
     const items = [...CONTENT.items.values()].map(

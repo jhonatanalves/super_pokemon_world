@@ -29,6 +29,10 @@ describe('estados do herói (F1-A10)', () => {
       ['jump', 'walk'],
       ['jump', 'run'],
       ['idle', 'skid'],
+      // F4c: agachado não entra direto na água; nadando não agacha nem derrapa.
+      ['crouch', 'swim'],
+      ['swim', 'crouch'],
+      ['swim', 'skid'],
     ];
     for (const [from, to] of invalid) {
       expect(canTransition(HERO_TRANSITIONS, from, to)).toBe(false);
@@ -69,7 +73,8 @@ describe('estados do herói (F1-A10)', () => {
     const dead = killHero(floor.motion).state;
     expect(canTransition(HERO_TRANSITIONS, previous, dead)).toBe(true);
     visited.add(dead);
-    expect([...visited].sort()).toEqual([...HERO_STATES].sort());
+    // Nadar (F4c) só acontece na água; é testado em water.test.ts.
+    expect([...visited].sort()).toEqual(HERO_STATES.filter((s) => s !== 'swim').sort());
   });
 
   it('morto não sai do estado nem se move', () => {

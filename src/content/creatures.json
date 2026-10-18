@@ -13,6 +13,10 @@
     "surf": { "name": "Pikachu Surfista", "color": "#41a6f6" },
     "flying": { "name": "Pikachu Voador", "color": "#f4f4f4" }
   },
+  "mounts": {
+    "lapras": { "name": "Lapras", "mount": "water", "color": "#41a6f6" },
+    "rapidash": { "name": "Rapidash", "mount": "land", "color": "#5d275d" }
+  },
   "items": {
     "oran-berry": { "name": "Fruta Oran", "power": "grow", "color": "#3b5dc9" },
     "thunder-stone": { "name": "Pedra do Trovão", "power": "electric", "color": "#38b764" },

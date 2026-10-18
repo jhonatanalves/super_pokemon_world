@@ -1,5 +1,5 @@
 import { GAME_CONFIG } from '../config/game';
-import { FIXED_DT, PHYSICS, type PhysicsConfig } from '../config/physics';
+import { FIXED_DT, PHYSICS, SLOPE_SPEED, type PhysicsConfig } from '../config/physics';
 import {
   createHeroMotion,
   killHero,
@@ -12,6 +12,17 @@ import {
 } from './heroMotion';
 import type { Level, Point } from './level';
 import { moveBody, type Box, type Cell } from './tileCollision';
+import { atSurface, inWater, withWaterFloor } from './water';
+
+/** Ajustes do corpo vindos do power-up ou da montaria (F4c). */
+export interface HeroMods {
+  /** A superfície da água segura o herói, como plataforma de mão única (montaria aquática, Surfista). */
+  readonly waterFloor: boolean;
+  /** Multiplica a velocidade de nado. */
+  readonly swimSpeed: number;
+}
+
+export const NO_MODS: HeroMods = { waterFloor: false, swimSpeed: 1 };
 
 /** O herói na fase: movimento (heroMotion), posição e contatos com o cenário. */
 export interface HeroBody {
@@ -61,6 +72,7 @@ export function resizeHero(body: HeroBody, height: number): HeroBody {
 /**
  * Um passo fixo: a lógica define a velocidade a partir dos contatos do passo anterior,
  * o corpo anda pela grade de tiles e, se passar do limite de baixo da fase, morre.
+ * Com o centro na água, nada (F4c).
  */
 export function stepHeroBody(
   prev: HeroBody,
@@ -68,11 +80,17 @@ export function stepHeroBody(
   level: Level,
   dt: number = FIXED_DT,
   p: PhysicsConfig = PHYSICS,
+  mods: HeroMods = NO_MODS,
 ): HeroBody {
   if (prev.motion.state === 'dead') return { ...prev, deadSteps: prev.deadSteps + 1 };
 
-  const motion = stepHero(prev.motion, input, prev.contacts, dt, p);
-  const moved = moveBody(level, heroBox(prev), motion.vx * dt, motion.vy * dt, {
+  const box = heroBox(prev);
+  const swim = inWater(level, box)
+    ? { surface: atSurface(level, box), speed: mods.swimSpeed }
+    : null;
+  const motion = stepHero(prev.motion, input, prev.contacts, dt, p, SLOPE_SPEED, swim);
+  const ground = mods.waterFloor ? withWaterFloor(level) : level;
+  const moved = moveBody(ground, box, motion.vx * dt, motion.vy * dt, {
     grounded: prev.contacts.ground,
     stepUp: p.slopeStepUp,
     snap: p.groundSnap,

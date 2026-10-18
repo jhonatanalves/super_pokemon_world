@@ -85,6 +85,11 @@ export function touchEnemy(e: Enemy, heroX: number): { enemy: Enemy; effect: Tou
   return { enemy: e, effect: 'hurt' };
 }
 
+/** A montaria consegue engolir (F4c): os que andam ou voam soltos; não o do cano nem o do teto. */
+export function canBeSwallowed(e: Enemy): boolean {
+  return e.behavior === 'walker' || e.behavior === 'shell' || e.behavior === 'flyer';
+}
+
 /** Ataques o derrotam (só o dropper é imune). */
 export function isAttackable(e: Enemy): boolean {
   return e.behavior !== 'dropper';

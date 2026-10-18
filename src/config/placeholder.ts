@@ -10,6 +10,7 @@ export const HERO_COLORS: { readonly [K in HeroState]: number } = {
   jump: 0x41a6f6,
   fall: 0x73eff7,
   dead: 0x5d275d,
+  swim: 0x3b5dc9,
 };
 
 export const RULER_COLORS = {
@@ -64,6 +65,13 @@ export const POWER_COLORS = {
   sparkCore: 0xf4f4f4,
   spin: 0xf4f4f4,
   itemOutline: 0x1a1c2c,
+  /** Inimigo cuspido pela montaria e o sinal de que ela tem algo na boca (F4c). */
+  shot: 0xa7f070,
+} as const;
+
+/** Montarias provisórias (F4c): quadrado do tamanho da cabeça na frente do corpo. */
+export const MOUNT_ART = {
+  head: 8,
 } as const;
 
 /** Blocos, itens e checkpoint provisórios (F3). */

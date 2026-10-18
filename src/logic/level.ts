@@ -11,13 +11,15 @@ export const LEVEL_LAYERS = {
  * Forma de colisão de um tile, vinda da propriedade "shape" do tileset.
  * Numa ladeira, `left` e `right` são as alturas do piso (px, a partir da base do tile)
  * nas bordas esquerda e direita. `hidden` é o bloco invisível (F3): só bloqueia quem sobe
- * por baixo dele; não vem do tileset, e sim dos blocos da camada de objetos.
+ * por baixo dele; não vem do tileset, e sim dos blocos da camada de objetos. `water` (F4c)
+ * não bloqueia nada: quem está nela nada (src/logic/water.ts).
  */
 export type TileShape =
   | { readonly kind: 'empty' }
   | { readonly kind: 'solid' }
   | { readonly kind: 'oneWay' }
   | { readonly kind: 'hidden' }
+  | { readonly kind: 'water' }
   | { readonly kind: 'slope'; readonly left: number; readonly right: number };
 
 export interface Point {
@@ -129,6 +131,7 @@ function parseShape(props: Map<string, unknown>, tileSize: number, what: string)
   switch (shape) {
     case 'solid':
     case 'oneWay':
+    case 'water':
       return { kind: shape };
     case 'slope': {
       const left = props.get('left');

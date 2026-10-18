@@ -113,7 +113,8 @@ export class LevelScene extends Phaser.Scene {
 
     this.view.setShowHidden(this.debug.isShown);
     this.view.render(this.world);
-    this.player.render(this.world.hero, this.world.power, this.world.hurt);
+    const riding = this.world.mounts.some((m) => m.state === 'ridden');
+    this.player.render(this.world.hero, this.world.power, this.world.hurt, riding);
     this.player.renderSpin(this.world.spinSteps > 0 ? spinBox(heroBox(this.world.hero)) : null);
     this.parallax.update(this.camera.state.scrollX);
     this.debug.update(this.world, this.camera.state);
