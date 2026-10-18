@@ -85,12 +85,20 @@ export function touchEnemy(e: Enemy, heroX: number): { enemy: Enemy; effect: Tou
   return { enemy: e, effect: 'hurt' };
 }
 
+/** Ataques o derrotam (só o dropper é imune). */
+export function isAttackable(e: Enemy): boolean {
+  return e.behavior !== 'dropper';
+}
+
 export function isSlidingShell(e: Enemy): boolean {
   return e.behavior === 'shell' && e.state === 'slide';
 }
 
-/** Atingido por uma concha deslizando. O que cai do teto (dropper) é imune. */
-export function hitByShell(e: Enemy): Enemy {
+/**
+ * Atingido por um ataque: concha deslizando, faísca, giro ou herói invencível (F4).
+ * O que cai do teto (dropper) é imune e não muda.
+ */
+export function hitByAttack(e: Enemy): Enemy {
   switch (e.behavior) {
     case 'walker':
       return killWalker(e);

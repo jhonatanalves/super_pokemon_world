@@ -9,13 +9,13 @@ import { NO_INPUT, stepsFor } from '../src/logic/heroMotion';
 import { parseLevel, tileAt } from '../src/logic/level';
 import { newSession } from '../src/logic/session';
 import { createWorld } from '../src/logic/world';
-import { CREATURES } from './helpers/world';
+import { CONTENT, CREATURES } from './helpers/world';
 
 const T = GAME_CONFIG.tileSize;
 const MAP_PATH = new URL('../public/assets/levels/test-f3.json', import.meta.url);
 
 const level = parseLevel(JSON.parse(readFileSync(MAP_PATH, 'utf-8')), T);
-const built = createWorld(level, CREATURES, newSession());
+const built = createWorld(level, CONTENT, newSession());
 const world = built.world;
 
 describe('fase de teste da F3', () => {
@@ -69,7 +69,7 @@ describe('creatures.json e a regra dos nomes', () => {
     }
   });
 
-  it('nenhum nome de criatura aparece no código (só em src/content/)', () => {
+  it('nenhum nome de criatura, forma do herói ou item aparece no código (só em src/content/)', () => {
     const files: string[] = [];
     const walk = (dir: string): void => {
       for (const name of readdirSync(dir)) {
@@ -79,10 +79,19 @@ describe('creatures.json e a regra dos nomes', () => {
       }
     };
     walk('src');
-    const names = [...CREATURES.values()].map((c) => c.name.toLowerCase());
+    // Nomes de Pokémon: em qualquer lugar do texto (também dentro de identificadores).
+    const pokemon = [
+      ...[...CREATURES.values()].map((c) => c.name),
+      ...Object.values(CONTENT.forms).map((f) => f.name),
+    ].map((n) => n.toLowerCase());
+    // Itens: como palavra inteira, porque "Pena" está dentro de "apenas".
+    const items = [...CONTENT.items.values()].map(
+      (i) => new RegExp(`(?<!\\p{L})${i.name.toLowerCase()}(?!\\p{L})`, 'u'),
+    );
     for (const file of files) {
       const text = readFileSync(file, 'utf-8').toLowerCase();
-      for (const name of names) expect(text.includes(name), `${name} em ${file}`).toBe(false);
+      for (const name of pokemon) expect(text.includes(name), `${name} em ${file}`).toBe(false);
+      for (const name of items) expect(name.test(text), `${name.source} em ${file}`).toBe(false);
     }
   });
 });

@@ -42,6 +42,28 @@ export const EFFECTS = {
   shellHeight: 0.75,
   /** Opacidade do corpo do inimigo derrotado. */
   defeatedAlpha: 0.5,
+
+  /** Pedaços do tijolo quebrado (F4): caem abrindo para os lados. */
+  debrisTime: 0.5,
+  debrisSpread: 12,
+  debrisFall: 32,
+  /** Herói piscando (dano e fim da invencibilidade): troca de visível a cada tantos segundos. */
+  blinkPeriod: 0.05,
+  /** A invencibilidade pisca nos últimos segundos, para avisar que vai acabar. */
+  starWarningTime: 2,
+  /** Cores trocadas durante a invencibilidade, a cada `starCyclePeriod` segundos. */
+  starCyclePeriod: 0.1,
+  /** Altura da faixa no topo do herói com a cor do estado de movimento (a do corpo é a da forma). */
+  heroStateBand: 4,
+} as const;
+
+/** Cores de efeitos da F4. */
+export const POWER_COLORS = {
+  starCycle: [0xffcd75, 0xf4f4f4, 0x73eff7, 0xa7f070],
+  spark: 0xffcd75,
+  sparkCore: 0xf4f4f4,
+  spin: 0xf4f4f4,
+  itemOutline: 0x1a1c2c,
 } as const;
 
 /** Blocos, itens e checkpoint provisórios (F3). */
@@ -73,6 +95,7 @@ export const HUD_STYLE = {
 export const DEBUG_COLORS = {
   enemyBox: 0xb13e53,
   heroBox: 0xf4f4f4,
+  itemBox: 0x38b764,
   tileFaces: 0xef7d57,
   deadZone: 0xffcd75,
   text: '#f4f4f4',

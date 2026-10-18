@@ -19,6 +19,8 @@ export interface HeroBody {
   /** Canto superior esquerdo da caixa de colisão, em px. */
   readonly x: number;
   readonly y: number;
+  /** Altura da caixa: a do pequeno ou a do grande (F4). A largura é sempre a mesma. */
+  readonly height: number;
   readonly contacts: HeroContacts;
   /** Tile em que a cabeça bateu neste passo (para os blocos da F3); null se não bateu. */
   readonly bumped: Cell | null;
@@ -26,14 +28,16 @@ export interface HeroBody {
   readonly deadSteps: number;
 }
 
+/** Tamanho do herói pequeno. */
 export const HERO_SIZE = { width: GAME_CONFIG.heroWidth, height: GAME_CONFIG.heroHeight } as const;
 
 /** Herói com os pés em `spawn` (centro, base). */
-export function createHeroBody(spawn: Point): HeroBody {
+export function createHeroBody(spawn: Point, height: number = HERO_SIZE.height): HeroBody {
   return {
     motion: createHeroMotion(),
     x: spawn.x - HERO_SIZE.width / 2,
-    y: spawn.y - HERO_SIZE.height,
+    y: spawn.y - height,
+    height,
     contacts: NO_CONTACTS,
     bumped: null,
     deadSteps: 0,
@@ -41,11 +45,17 @@ export function createHeroBody(spawn: Point): HeroBody {
 }
 
 export function heroBox(body: HeroBody): Box {
-  return { x: body.x, y: body.y, ...HERO_SIZE };
+  return { x: body.x, y: body.y, width: HERO_SIZE.width, height: body.height };
 }
 
 export function heroCenter(body: HeroBody): Point {
-  return { x: body.x + HERO_SIZE.width / 2, y: body.y + HERO_SIZE.height / 2 };
+  return { x: body.x + HERO_SIZE.width / 2, y: body.y + body.height / 2 };
+}
+
+/** Muda a altura (crescer ou encolher) mantendo os pés no mesmo lugar. */
+export function resizeHero(body: HeroBody, height: number): HeroBody {
+  if (height === body.height) return body;
+  return { ...body, y: body.y + body.height - height, height };
 }
 
 /**
@@ -74,6 +84,7 @@ export function stepHeroBody(
       motion: killHero(motion),
       x: moved.x,
       y: moved.y,
+      height: prev.height,
       contacts: NO_CONTACTS,
       bumped: null,
       deadSteps: 0,
@@ -83,6 +94,7 @@ export function stepHeroBody(
     motion,
     x: moved.x,
     y: moved.y,
+    height: prev.height,
     contacts: moved.contacts,
     bumped: moved.ceilingCell,
     deadSteps: 0,

@@ -1,16 +1,18 @@
 import Phaser from 'phaser';
-import { EFFECTS, OBJECT_COLORS } from '../config/placeholder';
+import { EFFECTS, OBJECT_COLORS, POWER_COLORS } from '../config/placeholder';
 import { isDefeated, type Enemy } from '../entities/enemies/Enemy';
 import { piperVisibleBox } from '../entities/enemies/PiperEnemy';
+import type { PowerItem } from '../entities/items/PowerItem';
 import { stepsFor } from '../logic/heroMotion';
 import type { Block } from '../logic/blocks';
-import type { Creatures } from '../logic/creatures';
+import { powerColor, type GameContent } from '../logic/creatures';
 import type { Box } from '../logic/tileCollision';
-import type { World } from '../logic/world';
+import type { Popup, World } from '../logic/world';
 
 /**
- * Desenha blocos, itens, checkpoint e inimigos como retângulos provisórios (até os sprites da
- * F7). Redesenha tudo a cada quadro a partir do World; não guarda estado do jogo.
+ * Desenha blocos, itens, checkpoint, inimigos, itens de power-up e faíscas como retângulos
+ * provisórios (até os sprites da F7). Redesenha tudo a cada quadro a partir do World; não
+ * guarda estado do jogo.
  */
 export class WorldView {
   private readonly g: Phaser.GameObjects.Graphics;
@@ -18,7 +20,7 @@ export class WorldView {
 
   constructor(
     scene: Phaser.Scene,
-    private readonly creatures: Creatures,
+    private readonly content: GameContent,
   ) {
     this.g = scene.add.graphics();
   }
@@ -45,8 +47,6 @@ export class WorldView {
       if (!world.session.checkpoint) g.fillRect(box.x, box.y + box.height / 2, box.width, 2);
     }
 
-    for (const block of world.blocks) this.drawBlock(block, s);
-
     for (const item of world.items) {
       const { x, y, width, height } = item.box;
       if (item.kind === 'coin') {
@@ -62,18 +62,61 @@ export class WorldView {
       }
     }
 
-    const popTotal = stepsFor(EFFECTS.coinPopTime);
-    for (const pop of world.popups) {
-      const rise = EFFECTS.coinPopHeight * (1 - pop.steps / popTotal);
+    for (const pop of world.popups) this.drawPopup(pop, s);
+
+    // Itens de power-up desenhados antes dos blocos ficam escondidos atrás deles ao sair.
+    for (const item of world.powerItems) this.drawPowerItem(item);
+    for (const block of world.blocks) this.drawBlock(block, s);
+
+    for (const enemy of world.enemies) this.drawEnemy(enemy);
+
+    for (const spark of world.sparks) {
+      const x = Math.round(spark.x);
+      const y = Math.round(spark.y);
+      g.fillStyle(POWER_COLORS.spark).fillRect(x, y, spark.width, spark.height);
+      g.fillStyle(POWER_COLORS.sparkCore).fillRect(x + 2, y + 2, spark.width - 4, spark.height - 4);
+    }
+  }
+
+  private drawPopup(pop: Popup, s: number): void {
+    const g = this.g;
+    if (pop.kind === 'coin') {
+      const rise = EFFECTS.coinPopHeight * (1 - pop.steps / stepsFor(EFFECTS.coinPopTime));
       g.fillStyle(OBJECT_COLORS.coin).fillRect(
         pop.x + s / 4,
         Math.round(pop.y - s - rise),
         s / 2,
         s - 4,
       );
+      return;
     }
+    // Quatro pedaços que se abrem para os lados e caem.
+    const t = 1 - pop.steps / stepsFor(EFFECTS.debrisTime);
+    const spread = EFFECTS.debrisSpread * t;
+    const fall = EFFECTS.debrisFall * t * t;
+    const piece = s / 4;
+    g.fillStyle(OBJECT_COLORS.brick);
+    for (const [dx, dy] of [
+      [-1, 0],
+      [1, 0],
+      [-1, 1],
+      [1, 1],
+    ]) {
+      const x = pop.x + s / 2 - piece / 2 + dx * (piece + spread);
+      const y = pop.y + dy * (s / 2) + fall - (1 - dy) * spread;
+      g.fillRect(Math.round(x), Math.round(y), piece, piece);
+    }
+  }
 
-    for (const enemy of world.enemies) this.drawEnemy(enemy);
+  private drawPowerItem(item: PowerItem): void {
+    const color = powerColor(this.content.items, item.power);
+    if (color === null) return;
+    const x = Math.round(item.x);
+    const y = Math.round(item.y);
+    this.g
+      .fillStyle(POWER_COLORS.itemOutline)
+      .fillRect(x + 1, y + 1, item.width - 2, item.height - 2);
+    this.g.fillStyle(color).fillRect(x + 2, y + 2, item.width - 4, item.height - 4);
   }
 
   private drawBlock(block: Block, s: number): void {
@@ -109,7 +152,7 @@ export class WorldView {
   }
 
   private drawEnemy(e: Enemy): void {
-    const creature = this.creatures.get(e.creature);
+    const creature = this.content.creatures.get(e.creature);
     const full = { x: e.x, y: e.y, width: e.width, height: e.height };
     let box = e.behavior === 'piper' ? piperVisibleBox(e) : full;
     if (!creature || !box) return;

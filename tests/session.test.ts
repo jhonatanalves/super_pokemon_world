@@ -10,7 +10,7 @@ import { addCoins, isGameOver, loseLife, newSession } from '../src/logic/session
 import { createWorld, levelStartedEvent } from '../src/logic/world';
 import { EventBus } from '../src/systems/EventBus';
 import { asciiLevel, tileObject } from './helpers/asciiLevel';
-import { CREATURES, makeWorld, WorldSim } from './helpers/world';
+import { CONTENT, makeWorld, WorldSim } from './helpers/world';
 
 const T = GAME_CONFIG.tileSize;
 const RIGHT: HeroInput = { ...NO_INPUT, right: true };
@@ -140,20 +140,20 @@ describe('checkpoint (F3-A11)', () => {
 
   it('a morte depois do checkpoint reinicia nele, não no início da fase', () => {
     const level = asciiLevel(lines, objects);
-    const sim = new WorldSim(createWorld(level, CREATURES, newSession()).world);
+    const sim = new WorldSim(createWorld(level, CONTENT, newSession()).world);
     sim.until(RIGHT, (w) => w.session.checkpoint, stepsFor(3));
 
     // A LevelScene reinicia a fase com a sessão da tentativa anterior.
-    const retry = createWorld(level, CREATURES, sim.world.session).world;
+    const retry = createWorld(level, CONTENT, sim.world.session).world;
     expect(retry.hero.x + T / 2).toBe(8.5 * T);
     expect(retry.hero.y + T).toBe(T);
 
-    const fresh = createWorld(level, CREATURES, newSession()).world;
+    const fresh = createWorld(level, CONTENT, newSession()).world;
     expect(fresh.hero.x + T / 2).toBe(level.spawn.x);
   });
 
   it('no máximo 1 checkpoint por fase', () => {
     const level = asciiLevel(lines, [...objects, tileObject('checkpoint', 12, 0)]);
-    expect(() => createWorld(level, CREATURES, newSession())).toThrow(/checkpoint/);
+    expect(() => createWorld(level, CONTENT, newSession())).toThrow(/checkpoint/);
   });
 });

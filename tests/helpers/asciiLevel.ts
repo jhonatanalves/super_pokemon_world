@@ -1,11 +1,5 @@
 import { GAME_CONFIG } from '../../src/config/game';
-import {
-  createHeroBody,
-  heroCenter,
-  HERO_SIZE,
-  stepHeroBody,
-  type HeroBody,
-} from '../../src/logic/heroBody';
+import { createHeroBody, heroCenter, stepHeroBody, type HeroBody } from '../../src/logic/heroBody';
 import type { HeroInput } from '../../src/logic/heroMotion';
 import {
   EMPTY_TILE,
@@ -108,7 +102,7 @@ export class LevelSim {
 
   /** y dos pés. */
   get feet(): number {
-    return this.body.y + HERO_SIZE.height;
+    return this.body.y + this.body.height;
   }
 
   get centerX(): number {

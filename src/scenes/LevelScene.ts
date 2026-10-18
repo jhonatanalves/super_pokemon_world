@@ -4,10 +4,11 @@ import { ASSETS } from '../config/assets';
 import { GAME_CONFIG } from '../config/game';
 import { RULER_COLORS } from '../config/placeholder';
 import { Player } from '../entities/Player';
-import { parseCreatures, type Creatures } from '../logic/creatures';
+import { spinBox } from '../logic/attacks';
+import { parseContent, type GameContent } from '../logic/creatures';
 import type { GameEvent } from '../logic/events';
 import { advanceClock } from '../logic/fixedStep';
-import { heroCenter, shouldRestart } from '../logic/heroBody';
+import { heroBox, heroCenter, shouldRestart } from '../logic/heroBody';
 import { LEVEL_LAYERS, parseLevel, type Ruler } from '../logic/level';
 import { isGameOver, newSession, type Session } from '../logic/session';
 import { createWorld, levelStartedEvent, stepWorld, type World } from '../logic/world';
@@ -32,12 +33,12 @@ export interface LevelData {
 }
 
 /**
- * Fase jogável. Na F3, a fase de teste com inimigos e blocos. A lógica toda está em
- * stepWorld (src/logic/world.ts); aqui ela roda no passo fixo, os eventos vão para o
+ * Fase jogável. Na F4, a fase de teste com inimigos, blocos e power-ups. A lógica toda está
+ * em stepWorld (src/logic/world.ts); aqui ela roda no passo fixo, os eventos vão para o
  * EventBus e o resultado é desenhado.
  */
 export class LevelScene extends Phaser.Scene {
-  private creatures!: Creatures;
+  private content!: GameContent;
   private world!: World;
   private player!: Player;
   private view!: WorldView;
@@ -57,8 +58,8 @@ export class LevelScene extends Phaser.Scene {
   create(data: LevelData = {}): void {
     const cached = this.cache.tilemap.get(ASSETS.testLevel.key) as { data?: unknown } | undefined;
     const level = parseLevel(cached?.data, GAME_CONFIG.tileSize);
-    this.creatures = parseCreatures(creaturesJson);
-    const built = createWorld(level, this.creatures, data.session ?? newSession());
+    this.content = parseContent(creaturesJson);
+    const built = createWorld(level, this.content, data.session ?? newSession());
     for (const error of built.errors) console.error(error);
     this.world = built.world;
     this.pending = 0;
@@ -68,8 +69,8 @@ export class LevelScene extends Phaser.Scene {
     this.createTiles();
     if (level.ruler) this.drawRuler(level.ruler);
 
-    this.view = new WorldView(this, this.creatures);
-    this.player = new Player(this, this.world.hero);
+    this.view = new WorldView(this, this.content);
+    this.player = new Player(this, this.content.forms);
     this.camera = new LevelCamera(this, level, heroCenter(this.world.hero));
     this.controls = new InputSystem(this);
     this.debug = new DebugPanel(this, this.world.collision, data.debug === true);
@@ -112,7 +113,8 @@ export class LevelScene extends Phaser.Scene {
 
     this.view.setShowHidden(this.debug.isShown);
     this.view.render(this.world);
-    this.player.render(this.world.hero);
+    this.player.render(this.world.hero, this.world.power, this.world.hurt);
+    this.player.renderSpin(this.world.spinSteps > 0 ? spinBox(heroBox(this.world.hero)) : null);
     this.parallax.update(this.camera.state.scrollX);
     this.debug.update(this.world, this.camera.state);
   }

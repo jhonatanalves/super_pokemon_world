@@ -1,14 +1,14 @@
 import Phaser from 'phaser';
 import { CAMERA } from '../config/camera';
 import { GAME_CONFIG } from '../config/game';
-import { PHYSICS } from '../config/physics';
+import { FIXED_DT, PHYSICS } from '../config/physics';
 import { DEBUG_COLORS } from '../config/placeholder';
 import { enemyHitbox } from '../entities/enemies/Enemy';
 import type { CameraState } from '../logic/camera';
-import { HERO_SIZE } from '../logic/heroBody';
+import { heroBox } from '../logic/heroBody';
 import { isPMeterFull, stepsFor } from '../logic/heroMotion';
 import { tileAt, type Level } from '../logic/level';
-import { isExposedFace } from '../logic/tileCollision';
+import { isExposedFace, type Box } from '../logic/tileCollision';
 import type { World } from '../logic/world';
 
 const DEPTH = 1000;
@@ -24,12 +24,15 @@ export class DebugPanel {
   private readonly heroBox: Phaser.GameObjects.Graphics;
   private readonly tileFaces: Phaser.GameObjects.Graphics;
   private shown = false;
+  /** Colisão desenhada; muda quando um bloco aparece ou um tijolo quebra. */
+  private drawn: Level;
 
   constructor(
     private readonly scene: Phaser.Scene,
     level: Level,
     shown = false,
   ) {
+    this.drawn = level;
     this.text = scene.add
       .text(2, TEXT_TOP, '', {
         fontFamily: 'monospace',
@@ -56,6 +59,10 @@ export class DebugPanel {
 
   update(world: World, camera: CameraState): void {
     if (!this.shown) return;
+    if (world.collision !== this.drawn) {
+      this.drawn = world.collision;
+      drawCollision(this.tileFaces.clear(), this.drawn);
+    }
     const b = world.hero;
     const m = b.motion;
     const c = b.contacts;
@@ -65,31 +72,27 @@ export class DebugPanel {
       `vx ${m.vx.toFixed(1)}  vy ${m.vy.toFixed(1)}`,
       `P ${pPercent}%${isPMeterFull(m) ? ' cheio' : ''}  chão ${m.airSteps === 0 ? 'sim' : 'não'}`,
       `ladeira ${c.ground ? c.groundSlope : '-'}`,
+      `forma ${world.power.form}  invenc ${(world.power.starSteps * FIXED_DT).toFixed(1)}s`,
       `câmera x ${camera.scrollX}  antecip ${camera.offset}`,
       `fps ${Math.round(this.scene.game.loop.actualFps)}`,
     ]);
 
     // Graphics ignora roundPixels; arredonda para coincidir com o herói desenhado.
-    this.heroBox.clear();
-    this.heroBox.lineStyle(1, DEBUG_COLORS.heroBox);
-    this.heroBox.strokeRect(
-      Math.round(b.x) + 0.5,
-      Math.round(b.y) + 0.5,
-      HERO_SIZE.width - 1,
-      HERO_SIZE.height - 1,
-    );
-    this.heroBox.lineStyle(1, DEBUG_COLORS.enemyBox);
+    const g = this.heroBox.clear();
+    const outline = (box: Box): void => {
+      if (box.width <= 0 || box.height <= 0) return;
+      g.strokeRect(Math.round(box.x) + 0.5, Math.round(box.y) + 0.5, box.width - 1, box.height - 1);
+    };
+    g.lineStyle(1, DEBUG_COLORS.heroBox);
+    outline(heroBox(b));
+    g.lineStyle(1, DEBUG_COLORS.enemyBox);
     for (const enemy of world.enemies) {
       const box = enemyHitbox(enemy);
-      if (box && box.width > 0 && box.height > 0) {
-        this.heroBox.strokeRect(
-          Math.round(box.x) + 0.5,
-          Math.round(box.y) + 0.5,
-          box.width - 1,
-          box.height - 1,
-        );
-      }
+      if (box) outline(box);
     }
+    // Itens de power-up e faíscas (F4).
+    g.lineStyle(1, DEBUG_COLORS.itemBox);
+    for (const box of [...world.powerItems, ...world.sparks]) outline(box);
     // Zona morta da câmera: o herói anda entre as duas linhas sem a câmera acompanhar.
     const half = CAMERA.deadZoneWidth / 2;
     const top = camera.scrollY;

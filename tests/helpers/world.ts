@@ -1,5 +1,5 @@
 import creaturesJson from '../../src/content/creatures.json';
-import { parseCreatures } from '../../src/logic/creatures';
+import { parseContent } from '../../src/logic/creatures';
 import type { GameEvent } from '../../src/logic/events';
 import type { HeroInput } from '../../src/logic/heroMotion';
 import type { LevelObject } from '../../src/logic/level';
@@ -7,7 +7,8 @@ import { newSession, type Session } from '../../src/logic/session';
 import { createWorld, stepWorld, type View, type World } from '../../src/logic/world';
 import { asciiLevel } from './asciiLevel';
 
-export const CREATURES = parseCreatures(creaturesJson);
+export const CONTENT = parseContent(creaturesJson);
+export const CREATURES = CONTENT.creatures;
 
 /** Tela infinita: todo inimigo acorda no primeiro passo. */
 export const EVERYWHERE: View = { left: -Infinity, right: Infinity };
@@ -18,7 +19,7 @@ export function makeWorld(
   objects: readonly LevelObject[] = [],
   session: Session = newSession(),
 ): World {
-  const built = createWorld(asciiLevel(lines, objects), CREATURES, session);
+  const built = createWorld(asciiLevel(lines, objects), CONTENT, session);
   if (built.errors.length > 0) throw new Error(built.errors.join('\n'));
   return built.world;
 }

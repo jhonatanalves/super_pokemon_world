@@ -11,4 +11,6 @@ export const GAME_CONFIG = {
   /** Caixa de colisão do herói pequeno, em px. */
   heroWidth: 16,
   heroHeight: 16,
+  /** Altura do herói grande (e dos estados especiais), em px. F4. */
+  bigHeroHeight: 32,
 } as const;

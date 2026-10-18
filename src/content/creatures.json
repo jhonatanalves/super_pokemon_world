@@ -1,7 +1,23 @@
 {
-  "rattata": { "name": "Rattata", "behavior": "walker", "color": "#b13e53" },
-  "shellder": { "name": "Shellder", "behavior": "shell", "color": "#3b5dc9" },
-  "zubat": { "name": "Zubat", "behavior": "flyer", "color": "#566c86" },
-  "bellsprout": { "name": "Bellsprout", "behavior": "piper", "color": "#a7f070" },
-  "geodude": { "name": "Geodude", "behavior": "dropper", "color": "#94b0c2" }
+  "enemies": {
+    "rattata": { "name": "Rattata", "behavior": "walker", "color": "#b13e53" },
+    "shellder": { "name": "Shellder", "behavior": "shell", "color": "#3b5dc9" },
+    "zubat": { "name": "Zubat", "behavior": "flyer", "color": "#566c86" },
+    "bellsprout": { "name": "Bellsprout", "behavior": "piper", "color": "#a7f070" },
+    "geodude": { "name": "Geodude", "behavior": "dropper", "color": "#94b0c2" }
+  },
+  "heroForms": {
+    "small": { "name": "Pichu", "color": "#ffcd75" },
+    "big": { "name": "Pikachu", "color": "#ef7d57" },
+    "electric": { "name": "Raichu", "color": "#b13e53" },
+    "surf": { "name": "Pikachu Surfista", "color": "#41a6f6" },
+    "flying": { "name": "Pikachu Voador", "color": "#f4f4f4" }
+  },
+  "items": {
+    "oran-berry": { "name": "Fruta Oran", "power": "grow", "color": "#3b5dc9" },
+    "thunder-stone": { "name": "Pedra do Trovão", "power": "electric", "color": "#38b764" },
+    "water-stone": { "name": "Pedra d'Água", "power": "surf", "color": "#73eff7" },
+    "feather": { "name": "Pena", "power": "flying", "color": "#f4f4f4" },
+    "rare-candy": { "name": "Doce Raro", "power": "star", "color": "#b13e53" }
+  }
 }

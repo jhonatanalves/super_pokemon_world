@@ -3,7 +3,7 @@ import { ENEMIES } from '../src/config/enemies';
 import { GAME_CONFIG } from '../src/config/game';
 import { FIXED_DT } from '../src/config/physics';
 import type { DropperEnemy } from '../src/entities/enemies/DropperEnemy';
-import { enemyHitbox, hitByShell, stepEnemy, type Enemy } from '../src/entities/enemies/Enemy';
+import { enemyHitbox, hitByAttack, stepEnemy, type Enemy } from '../src/entities/enemies/Enemy';
 import type { EnemyContext } from '../src/entities/enemies/EnemyBase';
 import type { FlyerEnemy } from '../src/entities/enemies/FlyerEnemy';
 import type { PiperEnemy } from '../src/entities/enemies/PiperEnemy';
@@ -22,7 +22,7 @@ import { newSession } from '../src/logic/session';
 import { createWorld } from '../src/logic/world';
 import { canTransition } from '../src/systems/StateMachine';
 import { asciiLevel, tileObject } from './helpers/asciiLevel';
-import { CREATURES, makeWorld, WorldSim } from './helpers/world';
+import { CONTENT, CREATURES, makeWorld, WorldSim } from './helpers/world';
 
 const T = GAME_CONFIG.tileSize;
 const RIGHT: HeroInput = { ...NO_INPUT, right: true };
@@ -82,7 +82,7 @@ describe('fábrica de entidades (F3-A1)', () => {
       ['S.......', '########'],
       [tileObject('missingno', 3, 0), tileObject('rattata', 5, 0)],
     );
-    const built = createWorld(level, CREATURES, newSession());
+    const built = createWorld(level, CONTENT, newSession());
     expect(built.errors).toHaveLength(1);
     expect(built.errors[0]).toMatch(/missingno/);
     expect(built.world.enemies.map((e) => e.creature)).toEqual(['rattata']);
@@ -294,10 +294,10 @@ describe('Bellsprout e Zubat na fase', () => {
   });
 
   it('a concha mata o Bellsprout e o Zubat, mas não o Geodude', () => {
-    expect(hitByShell(spawn('bellsprout', 4, 0, 2)).state).toBe('dead');
-    expect(hitByShell(spawn('zubat', 4, 0)).state).toBe('dead');
+    expect(hitByAttack(spawn('bellsprout', 4, 0, 2)).state).toBe('dead');
+    expect(hitByAttack(spawn('zubat', 4, 0)).state).toBe('dead');
     const dropper = spawn<DropperEnemy>('geodude', 4, 0);
-    expect(hitByShell(dropper)).toBe(dropper);
+    expect(hitByAttack(dropper)).toBe(dropper);
   });
 
   it('pisar no Zubat o derrota', () => {
