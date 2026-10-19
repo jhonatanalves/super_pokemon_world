@@ -12,7 +12,8 @@ import { enterState, tick } from '../enemies/EnemyBase';
 
 /**
  * Montaria (F4c, papel do Yoshi), sem Phaser. Espera parada até o herói cair em cima dela;
- * montada, segue o herói; com o dano, foge pela tela atravessando o cenário e some.
+ * montada, segue o herói; com o dano, cai até o chão e foge pela tela atravessando as
+ * paredes, até sumir.
  * A aquática fica sobre a superfície da água; a de terra cai na água como qualquer corpo.
  */
 export type MountState = 'wait' | 'ridden' | 'flee';
@@ -63,20 +64,17 @@ export function createMount(id: number, creature: string, kind: MountKind, foot:
   };
 }
 
-/** Esperando, cai até o chão; a aquática para na superfície da água. */
+/**
+ * Esperando, cai até o chão. Fugindo, também cai (o dano no ar não a deixa voando) e corre
+ * para o lado atravessando as paredes. A aquática para na superfície da água.
+ */
 export function stepMount(m: Mount, level: Level, dt: number, c: MountsConfig = MOUNTS): Mount {
   const next = { ...m, graceSteps: Math.max(m.graceSteps - 1, 0) };
-  switch (m.state) {
-    case 'wait': {
-      const floor = m.kind === 'water' ? withWaterFloor(level) : level;
-      const moved = walkAndFall(next, 0, floor, dt);
-      return tick({ ...next, x: moved.x, y: moved.y, vy: moved.vy, ground: moved.contacts.ground });
-    }
-    case 'flee':
-      return tick({ ...next, x: m.x + m.dir * c.fleeSpeed * dt });
-    case 'ridden':
-      return tick(next);
-  }
+  if (m.state === 'ridden') return tick(next);
+  const floor = m.kind === 'water' ? withWaterFloor(level) : level;
+  const fall = walkAndFall(next, 0, floor, dt);
+  const x = m.state === 'flee' ? m.x + m.dir * c.fleeSpeed * dt : fall.x;
+  return tick({ ...next, x, y: fall.y, vy: fall.vy, ground: fall.contacts.ground });
 }
 
 export function canRide(m: Mount): boolean {
@@ -104,7 +102,7 @@ export function leaveMount(m: Mount, dt: number, c: MountsConfig = MOUNTS): Moun
 
 /** O herói tomou dano montado: a montaria foge na direção `dir`. */
 export function fleeMount(m: Mount, dir: 1 | -1): Mount {
-  return { ...enterState(m, MOUNT_TRANSITIONS, 'flee'), dir };
+  return { ...enterState(m, MOUNT_TRANSITIONS, 'flee'), dir, vy: 0, ground: false };
 }
 
 /**

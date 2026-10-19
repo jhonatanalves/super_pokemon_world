@@ -219,6 +219,33 @@ describe('F4-A11: dano montado', () => {
     expect(sim.until(NO_INPUT, (w) => w.mounts.length === 0, stepsFor(4))).toBe(true);
   });
 
+  it('dano no ar: a montaria cai até o chão enquanto foge, em vez de fugir voando', () => {
+    // Depois de montar, o Zubat é posto acima do herói: ele pula e bate nele por baixo.
+    const sim = mountedSim(
+      FIELD,
+      tileObject('rapidash', 3, 5),
+      [tileObject('zubat', 25, 2)],
+      SCREEN,
+    );
+    const x = sim.world.hero.x;
+    sim.world = {
+      ...sim.world,
+      enemies: sim.world.enemies.map((e) =>
+        e.behavior === 'flyer' ? { ...e, active: true, x, homeX: x, offset: 0 } : e,
+      ),
+    };
+    press(sim, JUMP);
+    expect(sim.until(JUMP, (w) => !ridden(w), stepsFor(2))).toBe(true);
+    const fled = sim.world.mounts[0];
+    expect(fled.state).toBe('flee');
+    expect(fled.y + fled.height).toBeLessThan(6 * T);
+    // Cai até o chão (y = 96) enquanto corre para o lado.
+    expect(
+      sim.until(NO_INPUT, (w) => (w.mounts[0]?.y ?? 0) + MOUNTS.height === 6 * T, stepsFor(1)),
+    ).toBe(true);
+    expect(sim.world.mounts[0].x).not.toBe(fled.x);
+  });
+
   it('a pé, o mesmo toque volta a fazer o herói perder o power-up', () => {
     const sim = new WorldSim(makeWorld(FIELD, [tileObject('rattata', 6, 5)]));
     sim.world = {
