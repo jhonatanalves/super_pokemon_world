@@ -118,6 +118,28 @@ function tileSpan(start: number, length: number, tileSize: number): [number, num
   return [Math.floor(start / tileSize), Math.floor((start + length - EPSILON) / tileSize)];
 }
 
+/**
+ * O corpo está dentro do terreno: sobrepõe um bloco sólido, ou está abaixo do piso de uma
+ * ladeira sob o centro dele. Para quem atravessa paredes (a montaria que foge, F4c).
+ */
+export function insideTerrain(level: Level, box: Box): boolean {
+  const s = level.tileSize;
+  const [rowTop, rowBottom] = tileSpan(box.y, box.height, s);
+  const [colLeft, colRight] = tileSpan(box.x, box.width, s);
+  const centerX = box.x + box.width / 2;
+  const bottom = box.y + box.height;
+  for (let row = rowTop; row <= rowBottom; row++) {
+    for (let col = colLeft; col <= colRight; col++) {
+      const tile = tileAt(level, col, row);
+      if (tile.kind === 'solid') return true;
+      if (tile.kind === 'slope' && col === Math.floor(centerX / s)) {
+        if (bottom > slopeSurface(tile, col, row, centerX, s) + EPSILON) return true;
+      }
+    }
+  }
+  return false;
+}
+
 /** Move na horizontal e para na primeira parede (face lateral exposta de um bloco sólido). */
 function moveX(level: Level, box: Box, dx: number): { x: number; left: boolean; right: boolean } {
   const s = level.tileSize;

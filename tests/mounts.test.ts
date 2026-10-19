@@ -1,15 +1,23 @@
 import { describe, expect, it } from 'vitest';
 import { GAME_CONFIG } from '../src/config/game';
 import { MOUNTS } from '../src/config/mounts';
-import { PHYSICS } from '../src/config/physics';
+import { FIXED_DT, PHYSICS } from '../src/config/physics';
 import { canTransition } from '../src/systems/StateMachine';
-import { MOUNT_TRANSITIONS, riderPhysics, type Mount } from '../src/entities/mounts/Mount';
+import {
+  createMount,
+  fleeMount,
+  MOUNT_TRANSITIONS,
+  rideMount,
+  riderPhysics,
+  stepMount,
+  type Mount,
+} from '../src/entities/mounts/Mount';
 import { resizeHero } from '../src/logic/heroBody';
 import { NO_INPUT, stepsFor, type HeroInput } from '../src/logic/heroMotion';
 import type { LevelObject } from '../src/logic/level';
 import { heroHeightFor, type Form } from '../src/logic/powerups';
 import type { View, World } from '../src/logic/world';
-import { tileObject } from './helpers/asciiLevel';
+import { asciiLevel, tileObject } from './helpers/asciiLevel';
 import { makeWorld, WorldSim } from './helpers/world';
 
 const T = GAME_CONFIG.tileSize;
@@ -244,6 +252,23 @@ describe('F4-A11: dano montado', () => {
       sim.until(NO_INPUT, (w) => (w.mounts[0]?.y ?? 0) + MOUNTS.height === 6 * T, stepsFor(1)),
     ).toBe(true);
     expect(sim.world.mounts[0].x).not.toBe(fled.x);
+  });
+
+  it.each([
+    ['um cano de 3 tiles', ['........', '....##..', '....##..', '....##..', '########']],
+    ['um morro com ladeiras', ['........', '........', '...//\\\\.', '..//##\\\\', '########']],
+  ])('fugindo, atravessa %s sem cair pelo chão', (_, lines) => {
+    const level = asciiLevel(['S' + lines[0].slice(1), ...lines.slice(1)]);
+    const floor = (lines.length - 1) * T;
+    const start = createMount(0, 'rapidash', 'land', { x: T / 2, y: floor });
+    let m: Mount = fleeMount(rideMount(start), 1);
+    expect(m.state).toBe('flee');
+    for (let i = 0; i < stepsFor(2) && m.x < level.width - T; i++) {
+      m = stepMount(m, level, FIXED_DT);
+      expect(m.y + m.height).toBeLessThanOrEqual(floor);
+    }
+    expect(m.x).toBeGreaterThanOrEqual(level.width - T);
+    expect(m.y + m.height).toBe(floor);
   });
 
   it('a pé, o mesmo toque volta a fazer o herói perder o power-up', () => {

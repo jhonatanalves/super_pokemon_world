@@ -5,7 +5,7 @@ import { walkAndFall } from '../../logic/enemyMotion';
 import type { HeroMods } from '../../logic/heroBody';
 import { stepsFor } from '../../logic/heroMotion';
 import type { Level, Point } from '../../logic/level';
-import type { Box } from '../../logic/tileCollision';
+import { insideTerrain, type Box } from '../../logic/tileCollision';
 import { withWaterFloor } from '../../logic/water';
 import type { TransitionTable } from '../../systems/StateMachine';
 import { enterState, tick } from '../enemies/EnemyBase';
@@ -66,15 +66,21 @@ export function createMount(id: number, creature: string, kind: MountKind, foot:
 
 /**
  * Esperando, cai até o chão. Fugindo, também cai (o dano no ar não a deixa voando) e corre
- * para o lado atravessando as paredes. A aquática para na superfície da água.
+ * para o lado atravessando as paredes; dentro de um bloco ou de um morro, mantém a altura,
+ * para não cair pelo chão escondido embaixo deles. A aquática para na superfície da água.
  */
 export function stepMount(m: Mount, level: Level, dt: number, c: MountsConfig = MOUNTS): Mount {
   const next = { ...m, graceSteps: Math.max(m.graceSteps - 1, 0) };
   if (m.state === 'ridden') return tick(next);
   const floor = m.kind === 'water' ? withWaterFloor(level) : level;
+  if (m.state === 'flee') {
+    const ahead = { ...next, x: m.x + m.dir * c.fleeSpeed * dt };
+    if (insideTerrain(floor, ahead)) return tick({ ...ahead, vy: 0, ground: true });
+    const fall = walkAndFall(ahead, 0, floor, dt);
+    return tick({ ...ahead, y: fall.y, vy: fall.vy, ground: fall.contacts.ground });
+  }
   const fall = walkAndFall(next, 0, floor, dt);
-  const x = m.state === 'flee' ? m.x + m.dir * c.fleeSpeed * dt : fall.x;
-  return tick({ ...next, x, y: fall.y, vy: fall.vy, ground: fall.contacts.ground });
+  return tick({ ...next, x: fall.x, y: fall.y, vy: fall.vy, ground: fall.contacts.ground });
 }
 
 export function canRide(m: Mount): boolean {
