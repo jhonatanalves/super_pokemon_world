@@ -1,7 +1,7 @@
 import Phaser from 'phaser';
 import { GAME_CONFIG } from '../config/game';
 import { InputSystem } from '../systems/InputSystem';
-import type { LevelData } from './LevelScene';
+import type { MapData } from './WorldMapScene';
 
 export class TitleScene extends Phaser.Scene {
   private controls!: InputSystem;
@@ -19,7 +19,7 @@ export class TitleScene extends Phaser.Scene {
       })
       .setOrigin(0.5);
     this.add
-      .text(GAME_CONFIG.width / 2, GAME_CONFIG.height * 0.75, 'Z ou Enter: fase de teste', {
+      .text(GAME_CONFIG.width / 2, GAME_CONFIG.height * 0.75, 'Z ou Enter: jogo novo', {
         fontFamily: 'monospace',
         fontSize: '8px',
         color: '#94b0c2',
@@ -29,8 +29,8 @@ export class TitleScene extends Phaser.Scene {
   }
 
   update(): void {
-    // Jogo novo: sem sessão, a fase começa com as vidas iniciais e sem moedas.
-    const newGame: LevelData = {};
-    if (this.controls.justPressed('start')) this.scene.start('LevelScene', newGame);
+    // Jogo novo: sem `game`, o mapa começa do início, com as vidas iniciais (o save é da F5c).
+    const newGame: MapData = {};
+    if (this.controls.justPressed('start')) this.scene.start('WorldMapScene', newGame);
   }
 }

@@ -52,6 +52,11 @@ describe('fase de teste da F4', () => {
     expect(world.checkpoint).not.toBeNull();
   });
 
+  it('tem a fita no fim, para ser vencida pelo mapa (F5b)', () => {
+    expect(world.goal).not.toBeNull();
+    expect(world.goal!.x).toBeGreaterThan(level.width - GAME_CONFIG.width);
+  });
+
   it.each([
     ['pequeno', heroHeightFor('small')],
     ['grande', heroHeightFor('big')],

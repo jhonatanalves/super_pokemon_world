@@ -1,17 +1,21 @@
 import { createEnemy } from '../entities/EntityFactory';
 import type { Enemy } from '../entities/enemies/Enemy';
 import { createPlacedItem, type PowerItem } from '../entities/items/PowerItem';
+import { createKey, type Key } from '../entities/items/Key';
 import { createMount, type Mount } from '../entities/mounts/Mount';
 import type { Shot, Spark } from './attacks';
 import { parseBlock, withBlocks, type Block } from './blocks';
+import type { Carried } from './carry';
 import type { GameContent } from './creatures';
 import { NOT_HURT, type HurtState } from './damage';
 import type { GameEvent } from './events';
+import { isExitObject, parseExits, type LevelClear } from './goal';
 import { createHeroBody, type HeroBody } from './heroBody';
 import { parseCheckpoint, parseItem, type Checkpoint, type Item } from './items';
 import { objectFoot, type Level, type Point } from './level';
 import { hasStar, heroHeightFor, START_POWER, type PowerState } from './powerups';
 import type { Session } from './session';
+import type { Box } from './tileCollision';
 
 /**
  * Estado de uma tentativa da fase (World) e a montagem dele a partir do Tiled. O passo que
@@ -37,7 +41,7 @@ export interface World {
   readonly collision: Level;
   readonly hero: HeroBody;
   readonly hurt: HurtState;
-  /** Forma do herói e invencibilidade (F4). Toda tentativa começa pequena. */
+  /** Forma do herói e invencibilidade (F4). Começa na forma da sessão (F5b). */
   readonly power: PowerState;
   readonly enemies: readonly Enemy[];
   readonly blocks: readonly Block[];
@@ -68,6 +72,17 @@ export interface World {
   readonly pokeballs: number;
   readonly pokeballsTotal: number;
   readonly popups: readonly Popup[];
+  /** Passos desde o começo da tentativa; a fita do fim sobe e desce com eles (F5a). */
+  readonly steps: number;
+  /** Fita do fim da fase (F5a). */
+  readonly goal: Box | null;
+  /** Fechadura da saída secreta e a chave solta na fase (F5a). */
+  readonly keyhole: Box | null;
+  readonly key: Key | null;
+  /** Chave ou concha nas mãos do herói (F5a). */
+  readonly carry: Carried | null;
+  /** A fase acabou (F5a): daqui em diante só o herói anda, até a cena sair dela. */
+  readonly clear: LevelClear | null;
 }
 
 /** Faixa horizontal da tela, para acordar os inimigos. */
@@ -89,7 +104,9 @@ export function createWorld(
   const mounts: Mount[] = [];
   const enemies: Enemy[] = [];
   const errors: string[] = [];
+  const exits = parseExits(level.objects);
   for (const o of level.objects) {
+    if (isExitObject(o)) continue;
     const block = parseBlock(o, level.tileSize, content.items);
     const item = block ? null : parseItem(o);
     const checkpoint = block || item ? null : parseCheckpoint(o);
@@ -116,9 +133,9 @@ export function createWorld(
   const world: World = {
     level,
     collision: withBlocks(level, blocks),
-    hero: createHeroBody(start, heroHeightFor(START_POWER.form)),
+    hero: createHeroBody(start, heroHeightFor(session.form)),
     hurt: NOT_HURT,
-    power: START_POWER,
+    power: { ...START_POWER, form: session.form },
     enemies,
     blocks,
     items,
@@ -138,6 +155,12 @@ export function createWorld(
     pokeballs: 0,
     pokeballsTotal: items.filter((i) => i.kind === 'pokeball').length,
     popups: [],
+    steps: 0,
+    goal: exits.goal,
+    keyhole: exits.keyhole,
+    key: exits.key && createKey(exits.key),
+    carry: null,
+    clear: null,
   };
   return { world, errors };
 }
@@ -153,5 +176,6 @@ export function levelStartedEvent(world: World): GameEvent {
     form: world.power.form,
     star: hasStar(world.power),
     reserve: world.session.reserve,
+    stars: world.session.stars,
   };
 }

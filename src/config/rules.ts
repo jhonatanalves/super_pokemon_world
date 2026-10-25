@@ -6,7 +6,7 @@ export const RULES = {
   coinsPerLife: 100,
   /** Moedas Pokébola escondidas em cada fase. */
   pokeballsPerLevel: 5,
-  /** Tempo da tela de Game Over antes de voltar ao título, em segundos. */
+  /** Tempo da tela de Game Over antes de voltar ao mapa (F5b), em segundos. */
   gameOverTime: 3,
 } as const;
 

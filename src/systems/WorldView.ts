@@ -1,12 +1,14 @@
 import Phaser from 'phaser';
-import { EFFECTS, MOUNT_ART, OBJECT_COLORS, POWER_COLORS } from '../config/placeholder';
+import { EFFECTS, GOAL_ART, MOUNT_ART, OBJECT_COLORS, POWER_COLORS } from '../config/placeholder';
 import { isDefeated, type Enemy } from '../entities/enemies/Enemy';
 import { piperVisibleBox } from '../entities/enemies/PiperEnemy';
 import type { PowerItem } from '../entities/items/PowerItem';
 import type { Mount } from '../entities/mounts/Mount';
 import { stepsFor } from '../logic/heroMotion';
 import type { Block } from '../logic/blocks';
+import { carriedBox } from '../logic/carry';
 import { powerColor, type GameContent } from '../logic/creatures';
+import { tapeBox } from '../logic/goal';
 import type { Box } from '../logic/tileCollision';
 import type { Popup, World } from '../logic/world';
 
@@ -63,6 +65,7 @@ export class WorldView {
       }
     }
 
+    this.drawExits(world);
     for (const pop of world.popups) this.drawPopup(pop, s);
 
     // Itens de power-up desenhados antes dos blocos ficam escondidos atrás deles ao sair.
@@ -71,6 +74,10 @@ export class WorldView {
 
     for (const enemy of world.enemies) this.drawEnemy(enemy);
     for (const mount of world.mounts) this.drawMount(mount);
+    // Chave solta e o que o herói carrega (F5a).
+    if (world.key) this.drawKey(world.key);
+    if (world.carry?.kind === 'shell') this.drawEnemy(world.carry.shell);
+    else if (world.carry) this.drawKey(carriedBox(world.carry));
 
     for (const shot of world.shots) {
       g.fillStyle(OBJECT_COLORS.enemyOutline).fillRect(
@@ -93,6 +100,47 @@ export class WorldView {
       g.fillStyle(POWER_COLORS.spark).fillRect(x, y, spark.width, spark.height);
       g.fillStyle(POWER_COLORS.sparkCore).fillRect(x + 2, y + 2, spark.width - 4, spark.height - 4);
     }
+  }
+
+  /** Fita do fim (dois postes e a fita entre eles) e a fechadura da saída secreta (F5a). */
+  private drawExits(world: World): void {
+    const g = this.g;
+    if (world.goal) {
+      const { x, y, width, height } = world.goal;
+      const post = GOAL_ART.post;
+      g.fillStyle(OBJECT_COLORS.goalPost);
+      g.fillRect(x, y, post, height);
+      g.fillRect(x + width - post, y, post, height);
+      if (!world.clear || world.clear.exit !== 'normal') {
+        const tape = tapeBox(world.goal, world.steps);
+        g.fillStyle(OBJECT_COLORS.tape).fillRect(
+          x + post,
+          Math.round(tape.y),
+          width - 2 * post,
+          tape.height,
+        );
+      }
+    }
+    if (world.keyhole) {
+      const { x, y, width, height } = world.keyhole;
+      const { keyholeHead: head, keyholeSlot: slot } = GOAL_ART;
+      g.fillStyle(OBJECT_COLORS.keyholeFrame).fillRect(x, y, width, height);
+      g.fillStyle(OBJECT_COLORS.keyhole);
+      g.fillRect(x + (width - head) / 2, y + height / 4, head, head);
+      g.fillRect(x + (width - slot) / 2, y + height / 4 + head, slot, height / 2 - head / 2);
+    }
+  }
+
+  /** Chave: cabeça quadrada com furo e a haste com um dente. */
+  private drawKey(key: Box): void {
+    const g = this.g;
+    const x = Math.round(key.x);
+    const y = Math.round(key.y);
+    const half = key.height / 2;
+    g.fillStyle(OBJECT_COLORS.enemyOutline).fillRect(x + 1, y + 1, half, half);
+    g.fillStyle(OBJECT_COLORS.key).fillRect(x + 2, y + 2, half - 2, half - 2);
+    g.fillRect(x + half, y + half / 2, key.width - half - 1, 2);
+    g.fillRect(x + key.width - 4, y + half / 2, 2, half / 2 + 2);
   }
 
   private drawPopup(pop: Popup, s: number): void {

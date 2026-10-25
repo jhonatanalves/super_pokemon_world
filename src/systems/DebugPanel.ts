@@ -5,6 +5,7 @@ import { FIXED_DT, PHYSICS } from '../config/physics';
 import { DEBUG_COLORS } from '../config/placeholder';
 import { enemyHitbox } from '../entities/enemies/Enemy';
 import type { CameraState } from '../logic/camera';
+import { carriedBox } from '../logic/carry';
 import { heroBox } from '../logic/heroBody';
 import { isPMeterFull, stepsFor } from '../logic/heroMotion';
 import { tileAt, type Level } from '../logic/level';
@@ -75,6 +76,7 @@ export class DebugPanel {
       `ladeira ${c.ground ? c.groundSlope : '-'}`,
       `forma ${world.power.form}  invenc ${(world.power.starSteps * FIXED_DT).toFixed(1)}s`,
       `montaria ${riding ? riding.kind : '-'}  pulos ${world.airJumps}  surf ${world.surfSteps}`,
+      `carrega ${world.carry?.kind ?? '-'}  estrelas ${world.session.stars}`,
       `câmera x ${camera.scrollX}  antecip ${camera.offset}`,
       `fps ${Math.round(this.scene.game.loop.actualFps)}`,
     ]);
@@ -96,6 +98,11 @@ export class DebugPanel {
     g.lineStyle(1, DEBUG_COLORS.itemBox);
     for (const box of [...world.powerItems, ...world.sparks, ...world.shots]) outline(box);
     for (const mount of world.mounts) if (mount.state !== 'ridden') outline(mount);
+    // Chave, objeto carregado, fechadura e área da fita (F5a).
+    if (world.key) outline(world.key);
+    if (world.carry) outline(carriedBox(world.carry));
+    if (world.keyhole) outline(world.keyhole);
+    if (world.goal) outline(world.goal);
     // Zona morta da câmera: o herói anda entre as duas linhas sem a câmera acompanhar.
     const half = CAMERA.deadZoneWidth / 2;
     const top = camera.scrollY;

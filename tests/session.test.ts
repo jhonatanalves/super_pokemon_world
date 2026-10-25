@@ -6,6 +6,7 @@ import { isInvincible, NOT_HURT, takeDamage, tickHurt } from '../src/logic/damag
 import type { GameEvent } from '../src/logic/events';
 import { NO_INPUT, stepsFor, type HeroInput } from '../src/logic/heroMotion';
 import { applyHudEvent, EMPTY_HUD, HUD_EVENTS, hudText, type HudState } from '../src/logic/hud';
+import { heroHeightFor } from '../src/logic/powerups';
 import { addCoins, isGameOver, loseLife, newSession } from '../src/logic/session';
 import { createWorld, levelStartedEvent } from '../src/logic/world';
 import { EventBus } from '../src/systems/EventBus';
@@ -17,7 +18,14 @@ const RIGHT: HeroInput = { ...NO_INPUT, right: true };
 
 describe('vidas e Game Over', () => {
   it('o jogo começa com 5 vidas e nenhuma moeda', () => {
-    expect(newSession()).toEqual({ lives: 5, coins: 0, checkpoint: false, reserve: null });
+    expect(newSession()).toEqual({
+      lives: 5,
+      coins: 0,
+      checkpoint: false,
+      reserve: null,
+      stars: 0,
+      form: 'small',
+    });
     expect(RULES.startLives).toBe(5);
   });
 
@@ -122,6 +130,8 @@ describe('EventBus e HUD (F3-A10)', () => {
       form: 'small',
       star: false,
       reserve: null,
+      stars: 0,
+      clear: null,
     });
     sim.until(RIGHT, (w) => w.items.length === 0, stepsFor(3));
     for (const event of sim.events) bus.emit(event);
@@ -132,6 +142,32 @@ describe('EventBus e HUD (F3-A10)', () => {
   it('a morte chega ao HUD com as vidas já descontadas', () => {
     const hud = applyHudEvent({ ...EMPTY_HUD, lives: 5 }, { type: 'player-died', lives: 4 });
     expect(hud.lives).toBe(4);
+  });
+});
+
+describe('forma do herói entre as fases (F5b)', () => {
+  const lines = ['................', 'S...............', '################'];
+
+  it('a fase começa na forma da sessão, com a altura dela', () => {
+    const world = makeWorld(lines, [], { ...newSession(), form: 'surf' });
+    expect(world.power.form).toBe('surf');
+    expect(world.hero.height).toBe(heroHeightFor('surf'));
+  });
+
+  it('vencer a fase leva a forma atual para a sessão', () => {
+    const goal = tileObject('goal', 8, 0, {}, 2, 2);
+    const sim = new WorldSim(makeWorld(lines, [goal], { ...newSession(), form: 'big' }));
+    sim.world = { ...sim.world, power: { form: 'flying', starSteps: 0 } };
+    expect(sim.until(RIGHT, (w) => w.clear !== null, stepsFor(3))).toBe(true);
+    expect(sim.world.session.form).toBe('flying');
+  });
+
+  it('morrer volta a forma da sessão para pequeno', () => {
+    expect(loseLife({ ...newSession(), form: 'electric' }).form).toBe('small');
+    const pit = ['S.......', '###.....'];
+    const sim = new WorldSim(makeWorld(pit, [], { ...newSession(), form: 'big' }));
+    expect(sim.until(RIGHT, (w) => w.hero.motion.state === 'dead', stepsFor(5))).toBe(true);
+    expect(sim.world.session.form).toBe('small');
   });
 });
 

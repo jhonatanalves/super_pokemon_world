@@ -8,9 +8,11 @@ import { spinBox } from '../logic/attacks';
 import { parseContent, type GameContent } from '../logic/creatures';
 import type { GameEvent } from '../logic/events';
 import { advanceClock } from '../logic/fixedStep';
+import { enterLevel, type GameState, type LevelOutcome } from '../logic/game';
+import { isClearDone } from '../logic/goal';
 import { heroBox, heroCenter, shouldRestart } from '../logic/heroBody';
 import { LEVEL_LAYERS, parseLevel, type Ruler } from '../logic/level';
-import { isGameOver, newSession, type Session } from '../logic/session';
+import { isGameOver } from '../logic/session';
 import { createWorld, levelStartedEvent, stepWorld, type World } from '../logic/world';
 import { LevelCamera } from '../systems/Camera';
 import { DebugPanel } from '../systems/DebugPanel';
@@ -18,26 +20,28 @@ import { gameEvents } from '../systems/EventBus';
 import { InputSystem } from '../systems/InputSystem';
 import { Parallax } from '../systems/Parallax';
 import { WorldView } from '../systems/WorldView';
+import type { MapData } from './WorldMapScene';
 
 const MS_PER_SECOND = 1000;
 
-/**
- * Dados passados ao (re)começar a fase. Sempre passe um objeto ao iniciar a cena: sem dados,
- * o Phaser reaproveita os do último restart (e a sessão da tentativa anterior voltaria).
- */
+/** Dados ao entrar na fase, vindos do mapa (F5b). */
 export interface LevelData {
-  /** Mantém o painel de debug como estava antes da morte. */
-  readonly debug?: boolean;
-  /** Vidas, moedas e checkpoint da tentativa anterior; sem ele, começa um jogo novo. */
-  readonly session?: Session;
+  /** O jogo no mapa: a fase começa com a sessão dele e volta a ele no fim. */
+  readonly game: GameState;
+  /** Fase a jogar: chave em ASSETS.levels (o worlds.json é validado contra elas). */
+  readonly level: string;
 }
 
 /**
- * Fase jogável. Na F4, a fase de teste com inimigos, blocos e power-ups. A lógica toda está
- * em stepWorld (src/logic/world.ts); aqui ela roda no passo fixo, os eventos vão para o
- * EventBus e o resultado é desenhado.
+ * Fase jogável, carregada pela chave (F5a). A lógica toda está em stepWorld
+ * (src/logic/world.ts); aqui ela roda no passo fixo, os eventos vão para o EventBus e o
+ * resultado é desenhado. Vencer ou morrer volta ao mapa (F5b), passando pelo Game Over se
+ * as vidas acabaram.
  */
 export class LevelScene extends Phaser.Scene {
+  /** O jogo no mapa, como estava ao entrar (`game` já é do Phaser). */
+  private gameState!: GameState;
+  private levelKey = '';
   private content!: GameContent;
   private world!: World;
   private player!: Player;
@@ -55,11 +59,13 @@ export class LevelScene extends Phaser.Scene {
     super('LevelScene');
   }
 
-  create(data: LevelData = {}): void {
-    const cached = this.cache.tilemap.get(ASSETS.testLevel.key) as { data?: unknown } | undefined;
+  create(data: LevelData): void {
+    this.gameState = data.game;
+    this.levelKey = data.level;
+    const cached = this.cache.tilemap.get(this.levelKey) as { data?: unknown } | undefined;
     const level = parseLevel(cached?.data, GAME_CONFIG.tileSize);
     this.content = parseContent(creaturesJson);
-    const built = createWorld(level, this.content, data.session ?? newSession());
+    const built = createWorld(level, this.content, enterLevel(data.game, data.game.node));
     for (const error of built.errors) console.error(error);
     this.world = built.world;
     this.pending = 0;
@@ -73,9 +79,8 @@ export class LevelScene extends Phaser.Scene {
     this.player = new Player(this, this.content.forms);
     this.camera = new LevelCamera(this, level, heroCenter(this.world.hero));
     this.controls = new InputSystem(this);
-    this.debug = new DebugPanel(this, this.world.collision, data.debug === true);
-    // O HUD continua rodando entre as tentativas; só é aberto na primeira.
-    if (!this.scene.isActive('HudScene')) this.scene.launch('HudScene');
+    this.debug = new DebugPanel(this, this.world.collision);
+    this.scene.launch('HudScene');
   }
 
   update(_time: number, delta: number): void {
@@ -100,14 +105,17 @@ export class LevelScene extends Phaser.Scene {
     }
     for (const event of events) gameEvents.emit(event);
 
-    if (shouldRestart(this.world.hero)) {
-      if (isGameOver(this.world.session)) {
-        this.scene.stop('HudScene');
-        this.scene.start('GameOverScene');
-      } else {
-        const restart: LevelData = { debug: this.debug.isShown, session: this.world.session };
-        this.scene.restart(restart);
-      }
+    // Morte ou fim da fase: volta ao mapa, que aplica o resultado (src/logic/game.ts).
+    const session = this.world.session;
+    const { clear } = this.world;
+    let outcome: LevelOutcome | null = null;
+    if (shouldRestart(this.world.hero)) outcome = { kind: 'death', session };
+    else if (clear && isClearDone(clear)) outcome = { kind: 'clear', exit: clear.exit, session };
+    if (outcome) {
+      const back: MapData = { game: this.gameState, outcome };
+      this.scene.stop('HudScene');
+      const gameOver = outcome.kind === 'death' && isGameOver(session);
+      this.scene.start(gameOver ? 'GameOverScene' : 'WorldMapScene', back);
       return;
     }
 
@@ -122,7 +130,7 @@ export class LevelScene extends Phaser.Scene {
 
   /** Camadas de fundo e de terreno do Tiled. A colisão vem do Level, não do Phaser. */
   private createTiles(): void {
-    const map = this.make.tilemap({ key: ASSETS.testLevel.key });
+    const map = this.make.tilemap({ key: this.levelKey });
     const tileset = map.addTilesetImage(this.world.level.tilesetName, ASSETS.testTiles.key);
     const background = tileset && map.createLayer(LEVEL_LAYERS.background, tileset);
     const terrain = tileset && map.createLayer(LEVEL_LAYERS.terrain, tileset);

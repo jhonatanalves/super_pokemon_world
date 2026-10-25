@@ -17,6 +17,7 @@ export class InputSystem {
     this.keys = {
       left: addKeys('left'),
       right: addKeys('right'),
+      up: addKeys('up'),
       down: addKeys('down'),
       jump: addKeys('jump'),
       run: addKeys('run'),
@@ -58,6 +59,8 @@ export class InputSystem {
         return this.padButtons(pad, GAMEPAD.left) || pad.leftStick.x <= -GAMEPAD.stickThreshold;
       case 'right':
         return this.padButtons(pad, GAMEPAD.right) || pad.leftStick.x >= GAMEPAD.stickThreshold;
+      case 'up':
+        return this.padButtons(pad, GAMEPAD.up) || pad.leftStick.y <= -GAMEPAD.stickThreshold;
       case 'down':
         return this.padButtons(pad, GAMEPAD.down) || pad.leftStick.y >= GAMEPAD.stickThreshold;
       case 'jump':

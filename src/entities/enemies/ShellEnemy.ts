@@ -74,11 +74,21 @@ export function stepShell(e: ShellEnemy, ctx: EnemyContext): ShellEnemy {
 /** Chuta a concha parada para longe do herói. */
 export function kickShell(e: ShellEnemy, heroX: number): ShellEnemy {
   if (e.state !== 'shell') return e;
+  return throwShell(e, awayFrom(heroX, centerX(e)));
+}
+
+/** Concha parada que sai deslizando para `dir`: chutada, ou arremessada por quem a carregava (F5a). */
+export function throwShell(e: ShellEnemy, dir: 1 | -1): ShellEnemy {
   return {
     ...enterState(e, SHELL_TRANSITIONS, 'slide'),
-    dir: awayFrom(heroX, centerX(e)),
+    dir,
     graceSteps: stepsFor(ENEMIES.shell.kickGrace),
   };
+}
+
+/** Largada parada por quem a carregava (F5a): o herói, ainda encostado, não a chuta. */
+export function dropShell(e: ShellEnemy): ShellEnemy {
+  return { ...e, graceSteps: stepsFor(ENEMIES.shell.kickGrace) };
 }
 
 /** Pisão: andando vira concha; concha parada é chutada; concha deslizando para. */

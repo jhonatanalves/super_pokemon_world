@@ -7,16 +7,19 @@ import {
   applyHudEvent,
   EMPTY_HUD,
   HUD_EVENTS,
+  hudClearText,
   hudFormText,
   hudPokeballText,
+  hudStarText,
   hudText,
   type HudState,
 } from '../logic/hud';
 import { gameEvents } from '../systems/EventBus';
 
 /**
- * HUD por cima da fase: vidas, moedas, Moedas Pokébola, a forma do herói e a caixa de
- * reserva no centro (F4b). Só escuta eventos do EventBus; nunca consulta a fase.
+ * HUD por cima da fase: vidas, moedas, Moedas Pokébola, a forma do herói, a caixa de
+ * reserva no centro (F4b), as estrelas e a mensagem do fim da fase (F5a). Só escuta eventos
+ * do EventBus; nunca consulta a fase.
  */
 export class HudScene extends Phaser.Scene {
   private state: HudState = EMPTY_HUD;
@@ -24,6 +27,8 @@ export class HudScene extends Phaser.Scene {
   private left!: Phaser.GameObjects.Text;
   private right!: Phaser.GameObjects.Text;
   private form!: Phaser.GameObjects.Text;
+  private stars!: Phaser.GameObjects.Text;
+  private message!: Phaser.GameObjects.Text;
   private box!: Phaser.GameObjects.Graphics;
 
   constructor() {
@@ -44,6 +49,12 @@ export class HudScene extends Phaser.Scene {
     this.left = this.add.text(margin, margin, '', style);
     this.right = this.add.text(GAME_CONFIG.width - margin, margin, '', style).setOrigin(1, 0);
     this.form = this.add.text(margin, margin + line, '', style);
+    this.stars = this.add
+      .text(GAME_CONFIG.width - margin, margin + line, '', style)
+      .setOrigin(1, 0);
+    this.message = this.add
+      .text(GAME_CONFIG.width / 2, GAME_CONFIG.height / 2, '', { ...style, align: 'center' })
+      .setOrigin(0.5);
     this.box = this.add.graphics();
     this.redraw();
 
@@ -60,6 +71,9 @@ export class HudScene extends Phaser.Scene {
     this.left.setText(hudText(this.state));
     this.right.setText(hudPokeballText(this.state));
     this.form.setText(hudFormText(this.state, this.content.forms));
+    this.stars.setText(hudStarText(this.state));
+    const message = hudClearText(this.state);
+    this.message.setText(message ?? '').setVisible(message !== null);
 
     // Caixa de reserva no centro, com o item guardado dentro.
     const { boxSize, boxItem, margin } = HUD_LAYOUT;

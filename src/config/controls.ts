@@ -6,6 +6,8 @@ export type KeyName = keyof typeof Phaser.Input.Keyboard.KeyCodes;
 export const KEYBOARD = {
   left: ['LEFT', 'A'],
   right: ['RIGHT', 'D'],
+  /** Só no mapa-múndi (F5b); na fase, o herói não usa. */
+  up: ['UP', 'W'],
   down: ['DOWN', 'S'],
   jump: ['Z'],
   run: ['X'],
@@ -19,6 +21,7 @@ export const KEYBOARD = {
 export const GAMEPAD = {
   left: [14],
   right: [15],
+  up: [12],
   down: [13],
   jump: [0],
   run: [2],

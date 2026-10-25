@@ -92,6 +92,21 @@ export const OBJECT_COLORS = {
   checkpointReached: 0x38b764,
   /** Contorno escuro dos inimigos, para separá-los do herói. */
   enemyOutline: 0x1a1c2c,
+  /** Fim de fase (F5a): postes, fita, chave e fechadura. */
+  goalPost: 0xf4f4f4,
+  tape: 0xef7d57,
+  key: 0xffcd75,
+  keyhole: 0x1a1c2c,
+  keyholeFrame: 0xffcd75,
+} as const;
+
+/** Fim de fase provisório (F5a), em px. */
+export const GOAL_ART = {
+  /** Largura de cada poste da fita. */
+  post: 2,
+  /** Furo da chave: círculo de cima (quadrado) e a fenda embaixo. */
+  keyholeHead: 6,
+  keyholeSlot: 2,
 } as const;
 
 export const HUD_STYLE = {
@@ -113,6 +128,31 @@ export const HUD_LAYOUT = {
   /** Caixa de reserva, no centro do alto da tela, e o item desenhado dentro dela. */
   boxSize: 20,
   boxItem: 12,
+} as const;
+
+/** Mapa-múndi provisório (F5b): cores e tamanhos em px. */
+export const MAP_ART = {
+  background: 0x257179,
+  dot: 0xf4f4f4,
+  /**
+   * Fase ainda não vencida, vencida, castelo, mundo que ainda não existe e o início. A não
+   * vencida não usa a cor do herói pequeno, para ele aparecer em cima do nó.
+   */
+  level: 0xb13e53,
+  cleared: 0x38b764,
+  castle: 0x94b0c2,
+  soon: 0x566c86,
+  start: 0xf4f4f4,
+  outline: 0x1a1c2c,
+  node: 10,
+  /** O castelo é mais alto que os outros nós. */
+  castleHeight: 14,
+  startNode: 6,
+  dotSize: 2,
+  hero: { width: 8, height: 10 },
+  text: '#f4f4f4',
+  hint: '#94b0c2',
+  textBackground: '#1a1c2c99',
 } as const;
 
 export const DEBUG_COLORS = {
